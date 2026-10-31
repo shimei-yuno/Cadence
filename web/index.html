@@ -148,6 +148,9 @@
   }
   .badge.cycle{border-color:#5C4A28;color:var(--amber);}
   .badge.overdue{border-color:#5A3B30;color:var(--rust);}
+  .group-comment{
+    padding:0 12px 8px 40px;font-size:12.5px;color:var(--ink-dim);white-space:pre-wrap;line-height:1.45;
+  }
   .badge.today{border-color:#5C4A28;color:var(--amber);}
   .progress{font-size:11px;color:var(--ink-faint);white-space:nowrap;padding-top:2px;}
   .group-actions{display:flex;gap:4px;flex:none;}
@@ -225,11 +228,27 @@
   .sub-row input[type=text]:focus{outline:none;border-color:var(--dusty);}
   .sub-row .rm{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:11px;padding:2px 4px;}
   .sub-row .rm:hover{color:var(--rust);}
-  .sub-due-input{
-    background:var(--bg-card);border:1px solid var(--rule);color:var(--ink-dim);
-    font-family:inherit;font-size:11px;padding:4px 5px;border-radius:2px;width:120px;flex:none;
+  .sub-due-btn{
+    flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+    background:var(--bg-card);border:1px solid var(--rule);color:var(--ink-faint);border-radius:2px;
+    cursor:pointer;font-size:13px;padding:0;line-height:1;
   }
-  .sub-due-input:focus{outline:none;border-color:var(--dusty);color:var(--ink);}
+  .sub-due-btn:hover{color:var(--ink);border-color:var(--dusty);}
+  .sub-due-btn.has-due{color:var(--amber);border-color:#5C4A28;}
+  .due-popover{padding:10px;}
+  .due-popover-inner{display:flex;flex-direction:column;gap:8px;}
+  .due-popover input[type=datetime-local]{
+    background:var(--bg-card);border:1px solid var(--rule);color:var(--ink);
+    font-family:inherit;font-size:12px;padding:6px 7px;border-radius:2px;
+  }
+  .due-popover input[type=datetime-local]:focus{outline:none;border-color:var(--dusty);}
+  .due-popover-actions{display:flex;justify-content:space-between;gap:8px;}
+  .due-popover-actions button{
+    background:none;border:1px solid var(--rule);color:var(--ink-dim);font-family:inherit;
+    font-size:11px;padding:5px 10px;border-radius:2px;cursor:pointer;
+  }
+  .due-popover-actions button:hover{color:var(--ink);border-color:var(--dusty);}
+  .due-popover-actions button.primary{background:var(--amber);border-color:var(--amber);color:#1E2320;font-weight:600;}
   .sub-empty{font-size:11.5px;color:var(--ink-faint);font-style:italic;margin-bottom:6px;}
   .sub-add-input{
     width:100%;background:none;border:none;border-bottom:1px dashed var(--rule);color:var(--ink-dim);
@@ -369,6 +388,21 @@ function fmtDueBadge(g){
   if(g.time && g.time !== '00:00') s += ', ' + fmtTime(g.time);
   return s;
 }
+// ---- subtask deadlines use <input type="datetime-local"> ("YYYY-MM-DDTHH:MM"),
+// so they carry both a date and a time, unlike the main due-date field. The
+// string format sorts/compares correctly with plain < / <= (same trick ISO
+// dates use), so no need to parse into Date objects just to compare "now".
+function nowLocalStr(){
+  const d = new Date();
+  return isoOf(d) + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function fmtDateTime(dtLocal){
+  if(!dtLocal) return '';
+  const [datePart, timePart] = dtLocal.split('T');
+  let s = fmtDate(datePart);
+  if(timePart && timePart !== '00:00') s += ', ' + fmtTime(timePart);
+  return s;
+}
 function uid(){ return Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4); }
 
 // ---------- theme (light / dark / follow system) — a UI preference, not
@@ -410,7 +444,8 @@ function serialize(){
     for(const s of g.subtasks){ if(s.due) subDue[s.title] = s.due; }
     const meta = {
       id:g.id, repeat:g.repeat, days:g.days||[], due:g.due, time:g.time||'00:00',
-      history:g.history||[], archived: !!g.archived, completedAt: g.completedAt || null, subDue
+      history:g.history||[], archived: !!g.archived, completed: !!g.completed,
+      completedAt: g.completedAt || null, comment: g.comment || '', subDue
     };
     out += '<!-- meta: ' + JSON.stringify(meta) + ' -->\n';
     for(const s of g.subtasks){
@@ -463,7 +498,7 @@ function parseFile(text){
     } else if(hsm){
       hideSubBar = hsm[1] === '1';
     } else if(h){
-      cur = {id:uid(), title:h[1].trim(), repeat:'none', days:[], due:null, time:'00:00', history:[], archived:false, completedAt:null, subtasks:[], _subDue:{}};
+      cur = {id:uid(), title:h[1].trim(), repeat:'none', days:[], due:null, time:'00:00', history:[], archived:false, completed:false, completedAt:null, comment:'', subtasks:[], _subDue:{}};
       groups.push(cur);
     } else if(m && cur){
       try{
@@ -475,7 +510,9 @@ function parseFile(text){
         cur.time = meta.time || '00:00';
         cur.history = meta.history || [];
         cur.archived = !!meta.archived;
+        cur.completed = !!meta.completed;
         cur.completedAt = meta.completedAt || null;
+        cur.comment = meta.comment || '';
         cur._subDue = meta.subDue || {};
       }catch(e){}
     } else if(c && cur){
@@ -503,13 +540,18 @@ function groupStatus(g){
   if(g.due === todayISO()) return 'today';
   return 'upcoming';
 }
-// Maps the fine-grained per-item status onto the four main-list sections.
+// Maps each task onto one of the 5 date-based sections (plus a trailing
+// Completed section for finished non-repeating tasks).
 function sectionBucket(g){
-  const status = groupStatus(g);
-  if(status==='archived') return 'completed';
-  if(status==='overdue' || status==='today') return 'daily';
-  if(status==='anytime') return 'nodeadline';
-  return 'nextweek';
+  if(g.archived) return 'completed';
+  if(!g.due) return 'nodeadline';
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((parseISO(g.due) - todayStart) / 86400000);
+  if(dueDateTime(g) <= now || diffDays <= 0) return 'today';
+  if(diffDays <= 7) return 'thisweek';
+  if(diffDays <= 14) return 'nextweek';
+  return 'nextmonth';
 }
 function progressOf(g){
   if(!g.subtasks.length) return null;
@@ -528,21 +570,31 @@ function repeatLabel(g){
 function markSubtaskDone(g, s, done){
   s.done = done;
   const allDone = g.subtasks.length>0 && g.subtasks.every(x=>x.done);
-  // Repeating tasks: finishing every subtask just leaves them checked —
-  // the cycle only rolls forward once the scheduled reset time arrives
-  // (see runAutoResets), not immediately when the last box is ticked.
-  if(allDone && g.repeat==='none' && g.subtasks.length>0){
-    g.archived = true;
-    g.completedAt = Date.now();
-    toast('Task completed');
-  } else if(!done && g.archived){
-    g.archived = false;
-    g.completedAt = null;
+  if(g.repeat==='none'){
+    if(allDone && g.subtasks.length>0){
+      g.archived = true;
+      g.completedAt = Date.now();
+      toast('Task completed');
+    } else if(!done && g.archived){
+      g.archived = false;
+      g.completedAt = null;
+    }
+  } else {
+    // Repeating tasks: finishing every subtask marks the main task
+    // completed too (mirrors the main checkbox), but — same as before —
+    // this doesn't advance the due date immediately; it just stays
+    // checked until the scheduled reset (runAutoResets) rolls the cycle
+    // forward on its own.
+    if(allDone && g.subtasks.length>0){
+      g.completed = true;
+    } else if(!done && g.completed){
+      g.completed = false;
+    }
   }
   save();
 }
 function completeCycle(g, opts={}){
-  const wasCompleted = g.subtasks.length===0 || g.subtasks.every(s=>s.done);
+  const wasCompleted = g.completed || g.subtasks.length===0 || g.subtasks.every(s=>s.done);
   const base = g.due || todayISO();
   let next;
   if(g.repeat==='daily') next = addDaysISO(base,1);
@@ -553,6 +605,7 @@ function completeCycle(g, opts={}){
   g.history.push(base);
   g.due = next;
   g.subtasks.forEach(s=>s.done=false);
+  g.completed = false;
   if(!opts.silent){
     toast((wasCompleted ? 'Cycle complete' : 'Reset for new cycle') + ' — next due ' + fmtDueBadge(g));
   }
@@ -560,8 +613,12 @@ function completeCycle(g, opts={}){
 function runAutoResets(announce){
   const now = new Date();
   let resetCount = 0;
+  let healed = false;
   for(const g of tasks){
-    if(g.repeat==='none' || !g.due) continue;
+    if(g.repeat==='none') continue;
+    // A repeating task with no due date would never hit the reset check
+    // below and could sit "completed" forever — always give it one.
+    if(!g.due){ g.due = todayISO(); healed = true; }
     let iterations = 0;
     while(dueDateTime(g) <= now && iterations < 366){
       completeCycle(g, {silent:true});
@@ -569,19 +626,20 @@ function runAutoResets(announce){
     }
     if(iterations>0) resetCount++;
   }
-  if(resetCount>0){
-    save();
-    if(announce) toast(resetCount===1 ? 'A task reset for its new cycle' : resetCount + ' tasks reset for a new cycle');
-  }
+  if(resetCount>0 || healed) save();
+  if(resetCount>0 && announce) toast(resetCount===1 ? 'A task reset for its new cycle' : resetCount + ' tasks reset for a new cycle');
 }
 function toggleGroupDone(g){
   if(g.repeat!=='none'){
-    completeCycle(g);
+    // Mark done for this cycle without advancing the due date — same
+    // reasoning as markSubtaskDone above. The actual cycle rollover only
+    // happens once the scheduled reset time arrives.
+    g.completed = !g.completed;
+    g.subtasks.forEach(s=> s.done = g.completed);
   } else {
     g.archived = !g.archived;
     g.completedAt = g.archived ? Date.now() : null;
-    if(g.archived) g.subtasks.forEach(s=>s.done=true);
-    else g.subtasks.forEach(s=>s.done=false);
+    g.subtasks.forEach(s=>s.done = g.archived);
   }
   save();
 }
@@ -617,18 +675,19 @@ function renderList(){
     root.innerHTML = '<div class="empty">No tasks yet. Add one, or open an existing vault file.</div>';
     return;
   }
-  const buckets = {daily:[], nextweek:[], nodeadline:[], completed:[]};
+  const buckets = {nodeadline:[], today:[], thisweek:[], nextweek:[], nextmonth:[], completed:[]};
   for(const g of tasks) buckets[sectionBucket(g)].push(g);
 
   const sections = [
-    ['daily','Daily'], ['nextweek','Next Week'], ['nodeadline','No Deadline'], ['completed','Completed']
+    ['nodeadline','No Deadline'], ['today','Today'], ['thisweek','This Week'],
+    ['nextweek','Next Week'], ['nextmonth','Next Month'], ['completed','Completed']
   ];
   for(const [key,label] of sections){
     const items = buckets[key];
     if(!items.length) continue;
     const sec = document.createElement('div');
     sec.className = 'section';
-    sec.innerHTML = `<div class="section-title ${key==='daily'?'today':''}">${label} <span class="count">(${items.length})</span></div>`;
+    sec.innerHTML = `<div class="section-title ${key==='today'?'today':''}">${label} <span class="count">(${items.length})</span></div>`;
     const grid = document.createElement('div');
     grid.className = 'group-grid';
     for(const g of items) grid.appendChild(renderGroup(g));
@@ -645,21 +704,22 @@ function renderGroup(g){
   el.className = 'group' + (groupStatus(g)==='overdue' ? ' overdue' : '');
   const prog = progressOf(g);
   const status = groupStatus(g);
+  const isDone = g.repeat==='none' ? !!g.archived : !!g.completed;
 
   const head = document.createElement('div');
   head.className = 'group-head';
 
   const cb = document.createElement('div');
-  cb.className = 'checkbox' + (g.archived ? ' checked':'');
-  cb.textContent = g.archived ? '✓' : '';
-  cb.title = g.repeat!=='none' ? 'Complete this cycle' : 'Mark done';
+  cb.className = 'checkbox' + (isDone ? ' checked':'');
+  cb.textContent = isDone ? '✓' : '';
+  cb.title = g.repeat!=='none' ? 'Mark done for this cycle' : 'Mark done';
   cb.onclick = ()=> toggleGroupDone(g);
   head.appendChild(cb);
 
   const titleWrap = document.createElement('div');
   titleWrap.className = 'group-title-row';
   const titleEl = document.createElement('div');
-  titleEl.className = 'group-title' + (g.archived ? ' struck':'');
+  titleEl.className = 'group-title' + (isDone ? ' struck':'');
   titleEl.textContent = g.title;
   titleEl.onclick = ()=> openEdit(g.id);
   titleWrap.appendChild(titleEl);
@@ -693,9 +753,18 @@ function renderGroup(g){
 
   el.appendChild(head);
 
+  // Comment: hidden entirely when empty, shown below the title/badges and
+  // above the subtasks when there's content.
+  if(g.comment && g.comment.trim()){
+    const cm = document.createElement('div');
+    cm.className = 'group-comment';
+    cm.textContent = g.comment;
+    el.appendChild(cm);
+  }
+
   const subs = document.createElement('div');
   subs.className = 'subtasks';
-  const todayIso = todayISO();
+  const nowStr = nowLocalStr();
   for(const s of g.subtasks){
     const row = document.createElement('div');
     row.className = 'subtask';
@@ -712,8 +781,8 @@ function renderGroup(g){
     // Deadlines are normally hidden — only shown when this subtask actually has one set.
     if(s.due){
       const db = document.createElement('span');
-      db.className = 'due' + (!s.done && s.due < todayIso ? ' overdue' : '');
-      db.textContent = fmtDate(s.due);
+      db.className = 'due' + (!s.done && s.due < nowStr ? ' overdue' : '');
+      db.textContent = fmtDateTime(s.due);
       row.appendChild(db);
     }
     const rm = document.createElement('button');
@@ -1612,8 +1681,8 @@ function openQuickAdd(){
     if(!lines.length){ overlay.remove(); return; }
     for(const title of lines){
       tasks.push({
-        id: uid(), title, repeat:'none', days:[], due:null, time:'00:00',
-        history: [], archived:false, completedAt:null, subtasks:[]
+        id: uid(), title, repeat:'none', days:[], due:null, time:'00:00', comment:'',
+        history: [], archived:false, completed:false, completedAt:null, subtasks:[]
       });
     }
     save();
@@ -1623,12 +1692,37 @@ function openQuickAdd(){
 }
 
 // ---------- add / edit modal ----------
-function openAdd(){ editingId = null; openModal({title:'', repeat:'none', days:[], due:'', time:'00:00', subtasks:[]}); }
+// Small floating date+time picker for a subtask deadline — a fixed-size
+// square button opens this instead of an inline date input, since an
+// always-visible date input was wide enough to get clipped by the sub-row.
+// Reuses the .tabmenu class so it gets the same outside-click-closes
+// behavior as the other dropdown menus for free.
+function openSubDuePopover(anchor, currentValue, onChange){
+  closeAnyMenu();
+  const pop = document.createElement('div');
+  pop.className = 'tabmenu due-popover';
+  pop.innerHTML = `
+    <div class="due-popover-inner">
+      <input type="datetime-local" id="popDue">
+      <div class="due-popover-actions">
+        <button type="button" id="popClear">Clear</button>
+        <button type="button" class="primary" id="popDone">Done</button>
+      </div>
+    </div>`;
+  const r = anchor.getBoundingClientRect();
+  positionMenu(pop, r.left + window.scrollX, r.bottom + window.scrollY + 4);
+  const inp = pop.querySelector('#popDue');
+  inp.value = currentValue || '';
+  pop.querySelector('#popClear').onclick = ()=>{ pop.remove(); onChange(null); };
+  pop.querySelector('#popDone').onclick = ()=>{ pop.remove(); onChange(inp.value || null); };
+}
+
+function openAdd(){ editingId = null; openModal({title:'', repeat:'none', days:[], due:'', time:'00:00', subtasks:[], comment:''}); }
 function openEdit(id){
   const g = tasks.find(x=>x.id===id);
   if(!g) return;
   editingId = id;
-  openModal({title:g.title, repeat:g.repeat, days:g.days||[], due:g.due||'', time:g.time||'00:00', subtasks:g.subtasks.map(s=>({...s}))});
+  openModal({title:g.title, repeat:g.repeat, days:g.days||[], due:g.due||'', time:g.time||'00:00', subtasks:g.subtasks.map(s=>({...s})), comment:g.comment||''});
 }
 function openModal(data){
   const overlay = document.createElement('div');
@@ -1637,6 +1731,7 @@ function openModal(data){
     <div class="modal">
       <h2>${editingId? 'Edit task' : 'New task'}</h2>
       <div class="field"><label>Title</label><input type="text" id="mTitle" placeholder="e.g. Weekly groceries"></div>
+      <div class="field"><label>Comment</label><textarea id="mComment" rows="2" placeholder="Optional notes..." style="width:100%;background:var(--bg-card);border:1px solid var(--rule);color:var(--ink);font-family:inherit;font-size:13px;padding:8px 9px;border-radius:2px;resize:vertical;"></textarea></div>
       <div class="field"><label>Subtasks</label>
         <div class="sub-editor" id="mSubEditor"></div>
         <input type="text" id="mSubAdd" class="sub-add-input" placeholder="+ add subtask, press Enter">
@@ -1664,6 +1759,7 @@ function openModal(data){
     </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#mTitle').value = data.title;
+  overlay.querySelector('#mComment').value = data.comment || '';
   overlay.querySelector('#mRepeat').value = data.repeat;
   overlay.querySelector('#mDue').value = data.due || '';
   overlay.querySelector('#mTime').value = data.time || '00:00';
@@ -1708,13 +1804,16 @@ function openModal(data){
       inp.value = s.title;
       inp.oninput = ()=>{ s.title = inp.value; };
       row.appendChild(inp);
-      const dueInput = document.createElement('input');
-      dueInput.type = 'date';
-      dueInput.className = 'sub-due-input';
-      dueInput.title = 'Deadline (optional)';
-      dueInput.value = s.due || '';
-      dueInput.onchange = ()=>{ s.due = dueInput.value || null; };
-      row.appendChild(dueInput);
+      const dueBtn = document.createElement('button');
+      dueBtn.type = 'button';
+      dueBtn.className = 'sub-due-btn' + (s.due ? ' has-due' : '');
+      dueBtn.textContent = '📅';
+      dueBtn.title = s.due ? ('Deadline: ' + fmtDateTime(s.due)) : 'Set deadline';
+      dueBtn.onclick = (e)=>{
+        e.stopPropagation();
+        openSubDuePopover(dueBtn, s.due, (val)=>{ s.due = val; renderSubEditor(); });
+      };
+      row.appendChild(dueBtn);
       const rm = document.createElement('button');
       rm.className = 'rm'; rm.textContent = '✕'; rm.title = 'Remove subtask';
       rm.onclick = ()=>{ modalSubs = modalSubs.filter(x=>x!==s); renderSubEditor(); };
@@ -1747,18 +1846,29 @@ function openModal(data){
   overlay.querySelector('#mSave').onclick = ()=>{
     const title = overlay.querySelector('#mTitle').value.trim();
     if(!title){ toast('Title required'); return; }
+    // Commit any text still sitting in the "+ add subtask" box that the
+    // user never pressed Enter on — otherwise it's silently lost.
+    if(subAddInput.value.trim()){
+      modalSubs.push({id:uid(), title:subAddInput.value.trim(), done:false, due:null});
+      subAddInput.value = '';
+    }
+    const comment = overlay.querySelector('#mComment').value.trim();
     const repeat = overlay.querySelector('#mRepeat').value;
-    const due = overlay.querySelector('#mDue').value || null;
+    let due = overlay.querySelector('#mDue').value || null;
     const time = overlay.querySelector('#mTime').value || '00:00';
+    // A repeating task always needs a due date to reset against — without
+    // one it would never trip the auto-reset check and would just sit
+    // completed forever.
+    if(repeat!=='none' && !due) due = todayISO();
     const finalSubs = modalSubs.filter(s=>s.title.trim()).map(s=>({id:s.id||uid(), title:s.title.trim(), done:!!s.done, due:s.due||null}));
     if(editingId){
       const g = tasks.find(x=>x.id===editingId);
       g.title = title; g.repeat = repeat; g.days = [...selDays]; g.due = due; g.time = time;
-      g.subtasks = finalSubs;
+      g.comment = comment; g.subtasks = finalSubs;
     } else {
       tasks.push({
-        id: uid(), title, repeat, days:[...selDays], due, time,
-        history: [], archived:false, completedAt: null,
+        id: uid(), title, repeat, days:[...selDays], due, time, comment,
+        history: [], archived:false, completed:false, completedAt: null,
         subtasks: finalSubs
       });
     }
