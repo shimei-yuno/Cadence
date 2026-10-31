@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Cadence — plain-text recurring checklist</title>
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1E2320;
+    --bg-elevated:#252B26;
+    --bg-card:#20261F;
+    --ink:#E8E3D3;
+    --ink-dim:#9BA096;
+    --ink-faint:#6C7169;
+    --rule:#38402F;
+    --rule-soft:#2C3128;
+    --amber:#D4A24C;
+    --moss:#7C9473;
+    --rust:#C06A50;
+    --dusty:#7C93A6;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+    line-height:1.5;
+    min-height:100vh;
+  }
+
+  /* Layout: main column + weekday sidebar. Breakpoint is kept low (640px)
+     on purpose so the sidebar stays beside the list at the app's default
+     square-ish window size, and only drops below on genuinely narrow/mobile
+     widths. */
+  .appLayout{display:flex;gap:20px;max-width:900px;margin:0 auto;align-items:flex-start;padding:0 16px;}
+  .wrap{flex:1 1 380px;min-width:280px;max-width:640px;margin:0;padding:24px 0 60px;}
+  .daySidebar{width:190px;flex:0 0 190px;padding:24px 0 40px;position:sticky;top:16px;}
+  @media (max-width:640px){
+    .appLayout{flex-direction:column;padding:0 14px;}
+    .wrap{max-width:none;width:100%;padding:20px 0 20px;}
+    .daySidebar{width:100%;flex:none;position:static;padding:0 0 60px;}
+  }
+
+  /* Header */
+  header.app{display:flex;flex-direction:column;gap:2px;margin-bottom:14px;}
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand h1{
+    font-family:'Zilla Slab',serif;font-weight:700;font-size:28px;letter-spacing:0.5px;
+    margin:0;color:var(--ink);
+  }
+  .brand .tag{color:var(--ink-faint);font-size:12px;}
+
+  /* Tabs (vault switcher) */
+  .tabsbar{display:flex;align-items:flex-end;gap:4px;flex-wrap:wrap;margin-top:14px;}
+  .tab{
+    display:flex;align-items:center;justify-content:center;padding:9px 8px;border:1px solid var(--rule);
+    border-radius:var(--radius);background:var(--bg-elevated);color:var(--ink-dim);font-size:12.5px;
+    cursor:pointer;width:0.75in;text-align:center;
+  }
+  .tab.active{background:var(--bg-card);color:var(--ink);border-color:var(--dusty);}
+  .tab .tabname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+  .tab.addtab{width:auto;color:var(--ink-faint);border-style:dashed;padding:9px 16px;}
+  .tab.addtab:hover{color:var(--ink);border-color:var(--dusty);}
+  .tabmenu{
+    position:fixed;background:var(--bg-elevated);border:1px solid var(--rule);border-radius:var(--radius);
+    display:flex;flex-direction:column;z-index:90;box-shadow:0 6px 20px rgba(0,0,0,.4);overflow:hidden;
+  }
+  .tabmenu button{
+    background:none;border:none;color:var(--ink-dim);font-family:inherit;font-size:12px;padding:9px 14px;
+    text-align:left;cursor:pointer;white-space:nowrap;
+  }
+  .tabmenu button:hover{background:var(--rule-soft);color:var(--ink);}
+  .tabmenu button.danger-item{color:var(--rust);}
+
+  /* Toolbar */
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 22px;}
+  .toolbar .spacer{flex:1;}
+  .toolbar button{
+    background:none;border:1px solid var(--rule);color:var(--ink-dim);
+    font-family:inherit;font-size:11px;padding:7px 10px;border-radius:var(--radius);cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  .toolbar button:hover{border-color:var(--dusty);color:var(--ink);}
+  .toolbar button.primary{
+    background:var(--amber);color:#1E2320;border-color:var(--amber);font-weight:600;
+  }
+  .toolbar button.primary:hover{filter:brightness(1.08);}
+
+  /* Section headers */
+  .section{margin-bottom:26px;}
+  .section-title{
+    display:flex;align-items:center;gap:8px;
+    font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);
+    margin:0 0 10px 2px;
+  }
+  .section-title .count{color:var(--ink-dim);}
+  .section-title.overdue{color:var(--rust);}
+  .section-title.today{color:var(--amber);}
+
+  /* Group card */
+  .group{
+    border:1px solid var(--rule-soft);border-radius:var(--radius);background:var(--bg-card);
+    margin-bottom:10px;overflow:hidden;
+  }
+  .group.overdue{border-color:#5A3B30;}
+  .group-head{display:flex;align-items:flex-start;gap:10px;padding:12px;}
+  .group-title-row{flex:1;min-width:0;}
+  .group-title{
+    font-family:'Zilla Slab',serif;font-size:16px;font-weight:600;color:var(--ink);
+    cursor:pointer;word-break:break-word;
+  }
+  .group-title.struck{color:var(--ink-faint);text-decoration:line-through;}
+  .badges{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;}
+  .badge{
+    font-size:10px;padding:2px 6px;border-radius:2px;letter-spacing:0.3px;
+    border:1px solid var(--rule);color:var(--ink-dim);
+  }
+  .badge.cycle{border-color:#5C4A28;color:var(--amber);}
+  .badge.overdue{border-color:#5A3B30;color:var(--rust);}
+  .badge.today{border-color:#5C4A28;color:var(--amber);}
+  .progress{font-size:11px;color:var(--ink-faint);white-space:nowrap;padding-top:2px;}
+  .group-actions{display:flex;gap:4px;flex:none;}
+  .icon-btn{
+    background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:13px;padding:3px 5px;
+    border-radius:2px;
+  }
+  .icon-btn:hover{color:var(--ink);background:var(--rule-soft);}
+
+  .checkbox{
+    width:15px;height:15px;flex:none;border:1.5px solid var(--ink-faint);border-radius:2px;
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;margin-top:2px;
+    font-size:10px;color:transparent;
+  }
+  .checkbox.checked{background:var(--moss);border-color:var(--moss);color:#1E2320;}
+
+  .subtasks{padding:0 12px 10px 40px;display:flex;flex-direction:column;gap:5px;}
+  .subtask{display:flex;align-items:flex-start;gap:8px;}
+  .subtask .label{font-size:13.5px;color:var(--ink);cursor:pointer;}
+  .subtask .label.struck{color:var(--ink-faint);text-decoration:line-through;}
+  .subtask .rm{margin-left:auto;color:var(--ink-faint);background:none;border:none;cursor:pointer;font-size:11px;visibility:hidden;}
+  .subtask:hover .rm{visibility:visible;}
+
+  .empty{
+    text-align:center;color:var(--ink-faint);padding:40px 20px;border:1px dashed var(--rule);border-radius:var(--radius);
+    font-size:13px;
+  }
+
+  /* Modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(10,12,9,0.6);display:flex;align-items:flex-start;justify-content:center;
+    padding:6vh 16px;z-index:50;overflow-y:auto;
+  }
+  .modal{
+    background:var(--bg-elevated);border:1px solid var(--rule);border-radius:4px;max-width:460px;width:100%;
+    padding:20px;
+  }
+  .modal h2{font-family:'Zilla Slab',serif;font-size:19px;margin:0 0 14px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-faint);margin-bottom:5px;}
+  .field input[type=text], .field input[type=date], .field select{
+    width:100%;background:var(--bg-card);border:1px solid var(--rule);color:var(--ink);
+    font-family:inherit;font-size:13.5px;padding:8px 9px;border-radius:2px;
+  }
+  .field input:focus, .field select:focus{outline:none;border-color:var(--dusty);}
+  .weekdays{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
+  .wd{
+    border:1px solid var(--rule);color:var(--ink-dim);font-size:11px;padding:5px 8px;border-radius:2px;
+    cursor:pointer;background:none;font-family:inherit;
+  }
+  .wd.on{background:var(--amber);border-color:var(--amber);color:#1E2320;font-weight:600;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+  .hint-small{font-size:11px;color:var(--ink-faint);line-height:1.5;margin:-6px 0 4px;}
+  .btn{border:1px solid var(--rule);background:none;color:var(--ink-dim);font-family:inherit;font-size:12.5px;
+    padding:8px 14px;border-radius:2px;cursor:pointer;}
+  .btn:hover{color:var(--ink);border-color:var(--dusty);}
+  .btn.primary{background:var(--amber);border-color:var(--amber);color:#1E2320;font-weight:600;}
+  .btn.danger{color:var(--rust);}
+
+  /* Subtask editor (lives inside the edit/new-task modal only) */
+  .sub-editor{display:flex;flex-direction:column;gap:5px;margin-bottom:6px;}
+  .sub-row{display:flex;align-items:center;gap:7px;}
+  .sub-row input[type=text]{
+    flex:1;background:var(--bg-card);border:1px solid var(--rule);color:var(--ink);
+    font-family:inherit;font-size:12.5px;padding:5px 7px;border-radius:2px;
+  }
+  .sub-row input[type=text]:focus{outline:none;border-color:var(--dusty);}
+  .sub-row .rm{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:11px;padding:2px 4px;}
+  .sub-row .rm:hover{color:var(--rust);}
+  .sub-empty{font-size:11.5px;color:var(--ink-faint);font-style:italic;margin-bottom:6px;}
+  .sub-add-input{
+    width:100%;background:none;border:none;border-bottom:1px dashed var(--rule);color:var(--ink-dim);
+    font-family:inherit;font-size:12.5px;padding:5px 0;
+  }
+  .sub-add-input:focus{outline:none;border-color:var(--dusty);color:var(--ink);}
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--bg-elevated);
+    border:1px solid var(--moss);color:var(--ink);padding:9px 16px;border-radius:3px;font-size:12.5px;
+    box-shadow:0 4px 16px rgba(0,0,0,.4);z-index:80;opacity:0;transition:opacity .2s, transform .2s;
+    pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+  ::selection{background:var(--amber);color:#1E2320;}
+
+  /* Weekday sidebar — plain free-text notes, unrelated to tasks, saved per file */
+  .sidebar-settings-btn{
+    display:block;margin:0 0 8px auto;background:none;border:1px solid var(--rule);color:var(--ink-faint);
+    font-size:12px;padding:4px 7px;border-radius:2px;cursor:pointer;
+  }
+  .sidebar-settings-btn:hover{color:var(--ink);border-color:var(--dusty);}
+  .day-col{border:1px solid var(--rule-soft);border-radius:var(--radius);background:var(--bg-card);margin-bottom:8px;padding:8px 9px;}
+  .day-col.is-today{border-color:#5C4A28;}
+  .day-head{font-family:'Zilla Slab',serif;font-size:13px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+  .today-mark{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:var(--amber);border:1px solid #5C4A28;padding:1px 5px;border-radius:2px;}
+  .day-note{
+    width:100%;min-height:72px;background:var(--bg);border:1px solid var(--rule-soft);border-radius:2px;
+    color:var(--ink);font-family:inherit;font-size:12px;padding:6px 7px;resize:vertical;line-height:1.45;
+  }
+  .day-note:focus{outline:none;border-color:var(--dusty);}
+  .day-note::placeholder{color:var(--ink-faint);}
+
+  @media (max-width:480px){
+    .brand h1{font-size:23px;}
+  }
+</style>
+</head>
+<body>
+<div class="appLayout">
+  <div class="wrap">
+
+    <header class="app">
+      <div class="brand">
+        <h1>Cadence</h1>
+        <span class="tag">a plain-text checklist that repeats</span>
+      </div>
+      <div class="tabsbar" id="tabsbar"></div>
+    </header>
+
+    <div class="toolbar" id="toolbar">
+      <button class="primary" id="btnAdd">+ New task</button>
+      <div class="spacer"></div>
+      <span id="vaultActions"></span>
+    </div>
+
+    <div id="renderedView"></div>
+
+    <input type="file" id="fileImportInput" accept=".md,.txt" style="display:none;">
+  </div>
+
+  <aside class="daySidebar" id="daySidebar"></aside>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------------------------------------------------------
+   CADENCE — file-backed recurring checklist
+   Data for the ACTIVE vault lives entirely in a plain-text markdown
+   file (tasks.md): task groups (heading + hidden metadata comment +
+   checklist), plus a small hidden metadata comment holding the
+   Mon-Fri sidebar notes (plain free-text, unrelated to tasks).
+
+   Multiple vault files can be tracked at once (see the tabs bar) —
+   each tab points at its own file/handle, its own local cache, and
+   its own sidebar notes. Only the ACTIVE tab's data lives in `tasks`
+   / `sidebarNotes` below at any given moment.
+--------------------------------------------------------------- */
+
+const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_KEYS = ['mon','tue','wed','thu','fri','sat','sun'];
+const DAY_LABELS = {mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun'};
+const DOW_TO_KEY = ['sun','mon','tue','wed','thu','fri','sat'];
+
+let tasks = [];              // array of group objects — belongs to the ACTIVE vault
+let sidebarNotes = defaultNotes(); // {mon..sun} free text — belongs to the ACTIVE vault
+let dayResetTime = '00:00';  // HH:MM — when the sidebar's "today" flips to the next day; per-vault
+let vaults = [];             // [{id, name, path?}] — path is set for native-tracked vaults
+let activeVaultId = null;
+let fsaHandles = new Map();  // FSA (browser) mode only: vault id -> FileSystemFileHandle, in-memory
+let editingId = null;
+
+const hasFSA = 'showOpenFilePicker' in window;
+const hasNative = !!window.cadenceBridge;  // true inside the Electron app
+
+function defaultNotes(){ return {mon:'', tue:'', wed:'', thu:'', fri:'', sat:'', sun:''}; }
+function activeVault(){ return vaults.find(v => v.id === activeVaultId) || null; }
+function cacheKey(id){ return 'cadence_cache_' + id; }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------- date helpers (ISO yyyy-mm-dd, local) ----------
+function todayISO(){ const d=new Date(); return isoOf(d); }
+function isoOf(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function addDaysISO(s,n){ const d=parseISO(s); d.setDate(d.getDate()+n); return isoOf(d); }
+function addMonthsISO(s,n){ const d=parseISO(s); const day=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n);
+  const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); d.setDate(Math.min(day,last)); return isoOf(d); }
+function nextWeekdayISO(fromISO, days){
+  if(!days || !days.length) return addDaysISO(fromISO,7);
+  for(let i=1;i<=14;i++){ const cand=addDaysISO(fromISO,i); if(days.includes(parseISO(cand).getDay())) return cand; }
+  return addDaysISO(fromISO,7);
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  const d=parseISO(iso);
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+// ---- time-of-day (24h "HH:MM") helpers — the reset/due clock time ----
+function dueDateTime(g){
+  const [hh,mm] = (g.time || '00:00').split(':').map(Number);
+  const d = parseISO(g.due);
+  d.setHours(hh, mm, 0, 0);
+  return d;
+}
+function fmtTime(t){
+  if(!t) return '';
+  const [hh,mm] = t.split(':').map(Number);
+  const period = hh>=12 ? 'PM' : 'AM';
+  let h12 = hh % 12; if(h12===0) h12 = 12;
+  return h12 + ':' + String(mm).padStart(2,'0') + ' ' + period;
+}
+function fmtDueBadge(g){
+  if(!g.due) return '';
+  let s = fmtDate(g.due);
+  if(g.time && g.time !== '00:00') s += ', ' + fmtTime(g.time);
+  return s;
+}
+function uid(){ return Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4); }
+
+// ---------- base64 helpers (unicode-safe) for embedding sidebar notes ----------
+function b64encode(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64decode(str){ return decodeURIComponent(escape(atob(str))); }
+
+// ---------- serialize / parse ----------
+function serialize(){
+  let out = '# Cadence tasks\n\n';
+  out += '<!-- sidebar-notes: ' + b64encode(JSON.stringify(sidebarNotes)) + ' -->\n';
+  out += '<!-- day-reset-time: ' + (dayResetTime || '00:00') + ' -->\n\n';
+  for(const g of tasks){
+    out += '## ' + g.title + '\n';
+    const meta = {id:g.id, repeat:g.repeat, days:g.days||[], due:g.due, time:g.time||'00:00', history:g.history||[], archived: !!g.archived};
+    out += '<!-- meta: ' + JSON.stringify(meta) + ' -->\n';
+    for(const s of g.subtasks){
+      out += '- [' + (s.done?'x':' ') + '] ' + s.title + '\n';
+    }
+    out += '\n';
+  }
+  return out;
+}
+function parseFile(text){
+  const lines = text.split(/\r?\n/);
+  const groups = [];
+  const notes = defaultNotes();
+  let resetTime = '00:00';
+  let cur = null;
+  for(const line of lines){
+    const sb = line.match(/^<!--\s*sidebar-notes:\s*([A-Za-z0-9+/=]+)\s*-->$/);
+    const rt = line.match(/^<!--\s*day-reset-time:\s*(\d{1,2}:\d{2})\s*-->$/);
+    const h = line.match(/^##\s+(.*)$/);
+    const m = line.match(/^<!--\s*meta:\s*(\{.*\})\s*-->$/);
+    const c = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+    if(sb){
+      try{ Object.assign(notes, JSON.parse(b64decode(sb[1]))); }catch(e){}
+    } else if(rt){
+      resetTime = rt[1];
+    } else if(h){
+      cur = {id:uid(), title:h[1].trim(), repeat:'none', days:[], due:null, time:'00:00', history:[], archived:false, subtasks:[]};
+      groups.push(cur);
+    } else if(m && cur){
+      try{
+        const meta = JSON.parse(m[1]);
+        cur.id = meta.id || cur.id;
+        cur.repeat = meta.repeat || 'none';
+        cur.days = meta.days || [];
+        cur.due = meta.due || null;
+        cur.time = meta.time || '00:00';
+        cur.history = meta.history || [];
+        cur.archived = !!meta.archived;
+      }catch(e){}
+    } else if(c && cur){
+      cur.subtasks.push({id:uid(), title:c[2].trim(), done: c[1].toLowerCase()==='x'});
+    }
+  }
+  return {tasks: groups, sidebarNotes: notes, dayResetTime: resetTime};
+}
+
+// ---------- status / grouping ----------
+function groupStatus(g){
+  if(g.archived) return 'archived';
+  if(!g.due) return 'anytime';
+  const due = dueDateTime(g);
+  const now = new Date();
+  if(g.repeat === 'none'){
+    if(due < now) return 'overdue';
+    if(g.due === todayISO()) return 'today';
+    return 'upcoming';
+  }
+  if(due <= now) return 'today';
+  if(g.due === todayISO()) return 'today';
+  return 'upcoming';
+}
+function progressOf(g){
+  if(!g.subtasks.length) return null;
+  const done = g.subtasks.filter(s=>s.done).length;
+  return {done, total: g.subtasks.length};
+}
+function repeatLabel(g){
+  const t = (g.time && g.time!=='00:00') ? (' ' + fmtTime(g.time)) : '';
+  if(g.repeat==='daily') return '↻ daily' + t;
+  if(g.repeat==='weekly') return '↻ weekly · ' + (g.days.length? g.days.slice().sort().map(d=>WD[d]).join(' ') : '') + t;
+  if(g.repeat==='monthly') return '↻ monthly' + t;
+  return null;
+}
+
+// ---------- mutations ----------
+function markSubtaskDone(g, s, done){
+  s.done = done;
+  const allDone = g.subtasks.length>0 && g.subtasks.every(x=>x.done);
+  if(allDone && g.repeat!=='none'){
+    completeCycle(g);
+  } else if(allDone && g.repeat==='none' && g.subtasks.length>0){
+    g.archived = true;
+    toast('Task completed');
+  } else if(!done && g.archived){
+    g.archived = false;
+  }
+  save();
+}
+function completeCycle(g, opts={}){
+  const wasCompleted = g.subtasks.length===0 || g.subtasks.every(s=>s.done);
+  const base = g.due || todayISO();
+  let next;
+  if(g.repeat==='daily') next = addDaysISO(base,1);
+  else if(g.repeat==='weekly') next = nextWeekdayISO(base, g.days);
+  else if(g.repeat==='monthly') next = addMonthsISO(base,1);
+  else next = null;
+  g.history = g.history || [];
+  g.history.push(base);
+  g.due = next;
+  g.subtasks.forEach(s=>s.done=false);
+  if(!opts.silent){
+    toast((wasCompleted ? 'Cycle complete' : 'Reset for new cycle') + ' — next due ' + fmtDueBadge(g));
+  }
+}
+function runAutoResets(announce){
+  const now = new Date();
+  let resetCount = 0;
+  for(const g of tasks){
+    if(g.repeat==='none' || !g.due) continue;
+    let iterations = 0;
+    while(dueDateTime(g) <= now && iterations < 366){
+      completeCycle(g, {silent:true});
+      iterations++;
+    }
+    if(iterations>0) resetCount++;
+  }
+  if(resetCount>0){
+    save();
+    if(announce) toast(resetCount===1 ? 'A task reset for its new cycle' : resetCount + ' tasks reset for a new cycle');
+  }
+}
+function toggleGroupDone(g){
+  if(g.repeat!=='none'){
+    completeCycle(g);
+  } else {
+    g.archived = !g.archived;
+    if(g.archived) g.subtasks.forEach(s=>s.done=true);
+    else g.subtasks.forEach(s=>s.done=false);
+  }
+  save();
+}
+function deleteGroup(id){ tasks = tasks.filter(g=>g.id!==id); save(); }
+function removeSubtask(g, sid){ g.subtasks = g.subtasks.filter(s=>s.id!==sid); save(); }
+
+// ---------- rendering ----------
+function render(){
+  renderList();
+  renderSidebar();
+  renderTabsBar();
+  renderVaultActions();
+}
+function renderList(){
+  const root = document.getElementById('renderedView');
+  root.innerHTML = '';
+  if(!tasks.length){
+    root.innerHTML = '<div class="empty">No tasks yet. Add one, or open an existing vault file.</div>';
+    return;
+  }
+  const buckets = {overdue:[], today:[], upcoming:[], anytime:[], archived:[]};
+  for(const g of tasks) buckets[groupStatus(g)].push(g);
+
+  const sections = [
+    ['overdue','Overdue'], ['today','Due today'], ['upcoming','Upcoming'],
+    ['anytime','Anytime'], ['archived','Completed']
+  ];
+  for(const [key,label] of sections){
+    const items = buckets[key];
+    if(!items.length) continue;
+    const sec = document.createElement('div');
+    sec.className = 'section';
+    sec.innerHTML = `<div class="section-title ${key==='overdue'?'overdue':key==='today'?'today':''}">${label} <span class="count">(${items.length})</span></div>`;
+    for(const g of items) sec.appendChild(renderGroup(g));
+    root.appendChild(sec);
+  }
+}
+// Main page shows each task group's title, badges, progress count, and its
+// subtasks (checkable, removable) — adding new subtasks still happens in the
+// edit modal only.
+function renderGroup(g){
+  const el = document.createElement('div');
+  el.className = 'group' + (groupStatus(g)==='overdue' ? ' overdue' : '');
+  const prog = progressOf(g);
+  const status = groupStatus(g);
+
+  const head = document.createElement('div');
+  head.className = 'group-head';
+
+  const cb = document.createElement('div');
+  cb.className = 'checkbox' + (g.archived ? ' checked':'');
+  cb.textContent = g.archived ? '✓' : '';
+  cb.title = g.repeat!=='none' ? 'Complete this cycle' : 'Mark done';
+  cb.onclick = ()=> toggleGroupDone(g);
+  head.appendChild(cb);
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'group-title-row';
+  const titleEl = document.createElement('div');
+  titleEl.className = 'group-title' + (g.archived ? ' struck':'');
+  titleEl.textContent = g.title;
+  titleEl.onclick = ()=> openEdit(g.id);
+  titleWrap.appendChild(titleEl);
+
+  const badges = document.createElement('div');
+  badges.className = 'badges';
+  const rl = repeatLabel(g);
+  if(rl) badges.innerHTML += `<span class="badge cycle">${rl}</span>`;
+  if(g.due) badges.innerHTML += `<span class="badge ${status==='overdue'?'overdue':status==='today'?'today':''}">due ${fmtDueBadge(g)}</span>`;
+  titleWrap.appendChild(badges);
+  head.appendChild(titleWrap);
+
+  if(prog){
+    const p = document.createElement('div');
+    p.className = 'progress';
+    p.textContent = prog.done + '/' + prog.total;
+    p.title = 'Edit to check off subtasks';
+    head.appendChild(p);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'group-actions';
+  actions.innerHTML = `<button class="icon-btn" title="Edit">✎</button><button class="icon-btn" title="Delete">✕</button>`;
+  actions.children[0].onclick = ()=> openEdit(g.id);
+  actions.children[1].onclick = ()=>{ if(confirm('Delete "'+g.title+'"?')) deleteGroup(g.id); };
+  head.appendChild(actions);
+
+  el.appendChild(head);
+
+  if(g.subtasks.length){
+    const subs = document.createElement('div');
+    subs.className = 'subtasks';
+    for(const s of g.subtasks){
+      const row = document.createElement('div');
+      row.className = 'subtask';
+      const scb = document.createElement('div');
+      scb.className = 'checkbox' + (s.done?' checked':'');
+      scb.textContent = s.done ? '✓' : '';
+      scb.onclick = ()=> markSubtaskDone(g, s, !s.done);
+      row.appendChild(scb);
+      const lbl = document.createElement('div');
+      lbl.className = 'label' + (s.done?' struck':'');
+      lbl.textContent = s.title;
+      lbl.onclick = ()=> markSubtaskDone(g, s, !s.done);
+      row.appendChild(lbl);
+      const rm = document.createElement('button');
+      rm.className = 'rm'; rm.textContent = '✕'; rm.title = 'Remove subtask';
+      rm.onclick = ()=> removeSubtask(g, s.id);
+      row.appendChild(rm);
+      subs.appendChild(row);
+    }
+    el.appendChild(subs);
+  }
+
+  return el;
+}
+
+// Which weekday counts as "today" for the sidebar, honoring this vault's
+// day-reset time. If the clock hasn't hit that time yet, we're still in
+// yesterday's logical day (e.g. reset time 6:00 AM, it's 2:00 AM -> still
+// "yesterday" for the sidebar).
+function logicalTodayKey(){
+  const now = new Date();
+  const [hh, mm] = (dayResetTime || '00:00').split(':').map(Number);
+  const resetMoment = new Date(now);
+  resetMoment.setHours(hh, mm, 0, 0);
+  let dow = now.getDay();
+  if(now < resetMoment){
+    dow = (dow + 6) % 7; // yesterday
+  }
+  return DOW_TO_KEY[dow];
+}
+
+// ---- weekday sidebar: plain free-text notes per weekday, saved with the file.
+// Unrelated to tasks — content depends only on the active vault, so it swaps
+// whenever the tab switcher changes tabs. ----
+function renderSidebar(){
+  const root = document.getElementById('daySidebar');
+  if(!root) return;
+  const todayKey = logicalTodayKey();
+  root.innerHTML = '';
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'sidebar-settings-btn';
+  settingsBtn.textContent = '⚙';
+  settingsBtn.title = 'Sidebar settings (reset time for this tab)';
+  settingsBtn.onclick = openSidebarSettings;
+  root.appendChild(settingsBtn);
+  for(const key of DAY_KEYS){
+    const isToday = key === todayKey;
+    const col = document.createElement('div');
+    col.className = 'day-col' + (isToday ? ' is-today' : '');
+    const head = document.createElement('div');
+    head.className = 'day-head';
+    head.innerHTML = DAY_LABELS[key] + (isToday ? ' <span class="today-mark">today</span>' : '');
+    col.appendChild(head);
+    const ta = document.createElement('textarea');
+    ta.className = 'day-note';
+    ta.placeholder = 'Notes…';
+    ta.value = sidebarNotes[key] || '';
+    ta.oninput = ()=>{ sidebarNotes[key] = ta.value; scheduleSidebarSave(); };
+    col.appendChild(ta);
+    root.appendChild(col);
+  }
+}
+// Small modal: lets you set the time-of-day at which the sidebar's "today"
+// marker rolls to the next day. Stored per-tab (per-file), so each vault
+// can have its own reset time.
+function openSidebarSettings(){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:340px;">
+      <h2>Sidebar settings</h2>
+      <div class="field">
+        <label>Day resets at</label>
+        <input type="time" id="sReset">
+      </div>
+      <div class="hint-small">Controls when each weekday box starts being marked "today" — specific to this tab.</div>
+      <div class="modal-actions">
+        <button class="btn" id="sCancel">Cancel</button>
+        <button class="btn primary" id="sSave">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#sReset').value = dayResetTime || '00:00';
+  overlay.querySelector('#sCancel').onclick = ()=> overlay.remove();
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  overlay.querySelector('#sSave').onclick = ()=>{
+    dayResetTime = overlay.querySelector('#sReset').value || '00:00';
+    renderSidebar();
+    scheduleSidebarSave();
+    overlay.remove();
+    toast('Reset time updated for this tab');
+  };
+}
+
+function renderVaultActions(){
+  const el = document.getElementById('vaultActions');
+  if(!el) return;
+  el.innerHTML = '';
+  const v = activeVault();
+  const connected = !!v && ((hasNative && v.path) || (hasFSA && fsaHandles.get(v.id)));
+  if(hasNative || hasFSA){
+    if(!connected){
+      el.innerHTML = `<button id="btnConnectOpen">Connect file</button> <button id="btnConnectNew">Create file</button>`;
+      document.getElementById('btnConnectOpen').onclick = connectExistingToCurrent;
+      document.getElementById('btnConnectNew').onclick = connectNewToCurrent;
+    }
+  } else {
+    el.innerHTML = `<button id="btnImport">Import</button> <button id="btnExport">Export</button>`;
+    document.getElementById('btnImport').onclick = ()=> document.getElementById('fileImportInput').click();
+    document.getElementById('btnExport').onclick = exportDownload;
+  }
+}
+
+function displayTabName(name){
+  return (name || 'Untitled').replace(/\.(md|txt)$/i, '');
+}
+
+// ---- tabs bar (vault switcher) ----
+function renderTabsBar(){
+  const bar = document.getElementById('tabsbar');
+  if(!bar) return;
+  bar.innerHTML = '';
+  for(const v of vaults){
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (v.id===activeVaultId ? ' active':'');
+    tab.title = v.path || v.name || '';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'tabname';
+    nameSpan.textContent = displayTabName(v.name);
+    tab.appendChild(nameSpan);
+    tab.onclick = ()=> switchTab(v.id);
+    tab.ondblclick = (e)=>{ e.stopPropagation(); renameTab(v.id); };
+    tab.oncontextmenu = (e)=> openTabContextMenu(e, v);
+    bar.appendChild(tab);
+  }
+  const addTab = document.createElement('div');
+  addTab.className = 'tab addtab';
+  addTab.textContent = '+';
+  addTab.title = 'Add a list';
+  addTab.onclick = (e)=> openAddTabMenu(e, addTab);
+  bar.appendChild(addTab);
+}
+function renameTab(id){
+  const v = vaults.find(x=>x.id===id);
+  if(!v) return;
+  const name = prompt('Rename this tab', displayTabName(v.name));
+  if(!name) return;
+  v.name = name.trim() || v.name;
+  if(hasNative) window.cadenceBridge.renameVault(id, v.name);
+  else saveLocalMeta();
+  renderTabsBar();
+}
+function closeAnyMenu(){ document.querySelectorAll('.tabmenu').forEach(m=>m.remove()); }
+function positionMenu(menu, x, y){
+  document.body.appendChild(menu);
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, vw - r.width - 8) + 'px';
+  menu.style.top = Math.min(y, vh - r.height - 8) + 'px';
+  setTimeout(()=>{
+    document.addEventListener('click', function h(ev){
+      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click',h); }
+    });
+    document.addEventListener('contextmenu', function h2(ev){
+      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('contextmenu',h2); }
+    });
+  },0);
+}
+function openAddTabMenu(e, anchor){
+  closeAnyMenu();
+  if(!hasNative && !hasFSA){ memoryAddNamed(); return; }
+  const menu = document.createElement('div');
+  menu.className = 'tabmenu';
+  menu.innerHTML = `<button id="tmOpen">Open existing file…</button><button id="tmNew">Create new file…</button>`;
+  const r = anchor.getBoundingClientRect();
+  positionMenu(menu, r.left + window.scrollX, r.bottom + window.scrollY + 4);
+  menu.querySelector('#tmOpen').onclick = ()=>{ menu.remove(); addExistingTab(); };
+  menu.querySelector('#tmNew').onclick = ()=>{ menu.remove(); addNewTab(); };
+}
+// Right-click a tab: "Remove tab" just untracks it (file untouched on disk).
+// "Delete file" additionally deletes the underlying file — only offered
+// when this tab is actually connected to a real file.
+function openTabContextMenu(e, v){
+  e.preventDefault();
+  closeAnyMenu();
+  const connected = (hasNative && !!v.path) || (hasFSA && !!fsaHandles.get(v.id));
+  const menu = document.createElement('div');
+  menu.className = 'tabmenu';
+  if(hasNative || hasFSA){
+    menu.innerHTML = `<button id="ctxRemove">Remove tab</button>` +
+      (connected ? `<button id="ctxDelete" class="danger-item">Delete file…</button>` : '');
+  } else {
+    menu.innerHTML = `<button id="ctxRemove">Remove list</button>`;
+  }
+  positionMenu(menu, e.clientX + window.scrollX, e.clientY + window.scrollY);
+  menu.querySelector('#ctxRemove').onclick = ()=>{ menu.remove(); closeTab(v.id); };
+  const del = menu.querySelector('#ctxDelete');
+  if(del) del.onclick = ()=>{ menu.remove(); deleteTabAndFile(v.id); };
+}
+
+// ---------- generic vault controller (dispatches to the right backend) ----------
+function applyLoadedContent(text){
+  const parsed = parseFile(text || '');
+  tasks = parsed.tasks;
+  sidebarNotes = parsed.sidebarNotes;
+  dayResetTime = parsed.dayResetTime || '00:00';
+  runAutoResets(false);
+  render();
+}
+function ensureAtLeastOneVault(){
+  if(!vaults.length){
+    const id = uid();
+    vaults = [{id, name:'Untitled'}];
+    activeVaultId = id;
+    tasks = [];
+    sidebarNotes = defaultNotes();
+    dayResetTime = '00:00';
+  }
+  if(!activeVaultId || !vaults.find(v=>v.id===activeVaultId)){
+    activeVaultId = vaults[0].id;
+  }
+}
+async function bootVaults(){
+  if(hasNative) await nativeBootLoad();
+  else if(hasFSA) await fsaBootLoad();
+  else memoryBootLoad();
+  ensureAtLeastOneVault();
+}
+async function addExistingTab(){
+  if(hasNative) return nativeAddExisting();
+  if(hasFSA) return fsaAddExisting();
+  return memoryAddNamed();
+}
+async function addNewTab(){
+  if(hasNative) return nativeAddNew();
+  if(hasFSA) return fsaAddNew();
+  return memoryAddNamed();
+}
+async function switchTab(id){
+  if(id === activeVaultId) return;
+  if(hasNative) return nativeSwitch(id);
+  if(hasFSA) return fsaSwitch(id);
+  return memorySwitch(id);
+}
+async function closeTab(id){
+  if(vaults.length<=1){ toast("Can't close your only tab"); return; }
+  if(!confirm('Remove this tab? (the file itself is not deleted)')) return;
+  if(hasNative) return nativeClose(id);
+  if(hasFSA) return fsaClose(id);
+  return memoryClose(id);
+}
+async function deleteTabAndFile(id){
+  if(vaults.length<=1){ toast("Can't delete your only tab"); return; }
+  if(!confirm('Delete this file from disk? This cannot be undone.')) return;
+  if(hasNative) return nativeDeleteFile(id);
+  if(hasFSA) return fsaDeleteFile(id);
+  return memoryClose(id);
+}
+function replaceActiveVault(newVault){
+  const idx = vaults.findIndex(v=>v.id===activeVaultId);
+  if(idx>=0) vaults[idx] = newVault; else vaults.push(newVault);
+  activeVaultId = newVault.id;
+}
+async function connectExistingToCurrent(){
+  if(hasNative){
+    const res = await window.cadenceBridge.openFile();
+    if(!res) return;
+    replaceActiveVault({id:res.id, name:res.name, path:res.path});
+    applyLoadedContent(res.content);
+    toast('Vault file loaded');
+  } else if(hasFSA){
+    try{
+      const [handle] = await window.showOpenFilePicker({types:[{description:'Markdown', accept:{'text/markdown':['.md'], 'text/plain':['.txt']}}]});
+      const oldId = activeVaultId;
+      const id = uid();
+      replaceActiveVault({id, name: handle.name});
+      fsaHandles.set(id, handle);
+      await storeHandle(id, handle);
+      fsaHandles.delete(oldId);
+      forgetHandle(oldId);
+      localStorage.removeItem(cacheKey(oldId));
+      const file = await handle.getFile();
+      applyLoadedContent(await file.text());
+      saveLocalMeta();
+      toast('Vault file loaded');
+    }catch(e){}
+  }
+}
+async function connectNewToCurrent(){
+  if(hasNative){
+    const res = await window.cadenceBridge.newFile();
+    if(!res) return;
+    replaceActiveVault({id:res.id, name:res.name, path:res.path});
+    tasks = [];
+    sidebarNotes = defaultNotes();
+    dayResetTime = '00:00';
+    save();
+    toast('New vault file created');
+  } else if(hasFSA){
+    try{
+      const handle = await window.showSaveFilePicker({suggestedName:'tasks.md', types:[{description:'Markdown', accept:{'text/markdown':['.md']}}]});
+      const oldId = activeVaultId;
+      const id = uid();
+      replaceActiveVault({id, name: handle.name});
+      fsaHandles.set(id, handle);
+      await storeHandle(id, handle);
+      fsaHandles.delete(oldId);
+      forgetHandle(oldId);
+      tasks = [];
+      sidebarNotes = defaultNotes();
+      dayResetTime = '00:00';
+      saveLocalMeta();
+      save();
+      toast('New vault file created');
+    }catch(e){}
+  }
+}
+
+// ---------- NATIVE (Electron) backend ----------
+async function nativeBootLoad(){
+  const res = await window.cadenceBridge.boot();
+  vaults = (res.vaults||[]).map(v=>({id:v.id, name:v.name || v.path.split(/[\\/]/).pop(), path:v.path}));
+  activeVaultId = res.activeVaultId;
+  if(!vaults.length){
+    tasks = [];
+    sidebarNotes = defaultNotes();
+    dayResetTime = '00:00';
+    return;
+  }
+  if(res.error === 'missing'){
+    toast("The last file couldn't be found — reconnect it or start fresh");
+    tasks = [];
+    sidebarNotes = defaultNotes();
+    dayResetTime = '00:00';
+  } else {
+    const parsed = parseFile(res.content || '');
+    tasks = parsed.tasks;
+    sidebarNotes = parsed.sidebarNotes;
+  dayResetTime = parsed.dayResetTime || '00:00';
+    runAutoResets(false);
+  }
+}
+async function nativeAddExisting(){
+  const res = await window.cadenceBridge.openFile();
+  if(!res) return;
+  const existing = vaults.find(v=>v.id===res.id);
+  if(!existing) vaults.push({id:res.id, name:res.name, path:res.path});
+  activeVaultId = res.id;
+  applyLoadedContent(res.content);
+  toast('Vault file loaded');
+}
+async function nativeAddNew(){
+  const res = await window.cadenceBridge.newFile();
+  if(!res) return;
+  vaults.push({id:res.id, name:res.name, path:res.path});
+  activeVaultId = res.id;
+  tasks = [];
+  sidebarNotes = defaultNotes();
+  dayResetTime = '00:00';
+  save();
+  toast('New vault file created');
+}
+async function nativeSwitch(id){
+  const res = await window.cadenceBridge.switchVault(id);
+  if(!res) return;
+  activeVaultId = id;
+  if(res.error === 'missing'){
+    toast('That file is missing — reconnect it from disk');
+    tasks = [];
+    sidebarNotes = defaultNotes();
+    dayResetTime = '00:00';
+    render();
+    return;
+  }
+  applyLoadedContent(res.content);
+}
+async function nativeClose(id){
+  const res = await window.cadenceBridge.closeVault(id);
+  vaults = (res.vaults||[]).map(v=>({id:v.id, name:v.name || v.path.split(/[\\/]/).pop(), path:v.path}));
+  if(!vaults.length){
+    ensureAtLeastOneVault();
+    render();
+    return;
+  }
+  activeVaultId = res.activeVaultId || vaults[0].id;
+  await nativeSwitch(activeVaultId);
+}
+async function nativeDeleteFile(id){
+  if(typeof window.cadenceBridge.deleteVaultFile !== 'function'){
+    toast('This build can\'t delete files — removing the tab only');
+    return nativeClose(id);
+  }
+  const res = await window.cadenceBridge.deleteVaultFile(id);
+  if(!res) return;
+  vaults = (res.vaults||[]).map(v=>({id:v.id, name:v.name || v.path.split(/[\\/]/).pop(), path:v.path}));
+  if(!vaults.length){
+    ensureAtLeastOneVault();
+    render();
+    toast('File deleted');
+    return;
+  }
+  activeVaultId = res.activeVaultId || vaults[0].id;
+  await nativeSwitch(activeVaultId);
+  toast('File deleted');
+}
+
+// ---------- FSA (browser File System Access API) backend ----------
+async function fsaBootLoad(){
+  const meta = loadLocalMeta();
+  if(meta && meta.vaults && meta.vaults.length){
+    vaults = meta.vaults;
+    activeVaultId = (meta.activeVaultId && meta.vaults.find(v=>v.id===meta.activeVaultId)) ? meta.activeVaultId : meta.vaults[0].id;
+  } else {
+    const id = uid();
+    vaults = [{id, name:'Untitled'}];
+    activeVaultId = id;
+    const legacyHandle = await loadHandle('vault');
+    if(legacyHandle){ await storeHandle(id, legacyHandle); }
+    const legacyCache = localStorage.getItem('cadence_cache');
+    if(legacyCache) localStorage.setItem(cacheKey(id), legacyCache);
+    saveLocalMeta();
+  }
+  await fsaLoadActive();
+}
+async function fsaLoadActive(){
+  const v = activeVault();
+  if(!v) return;
+  const handle = await loadHandle(v.id);
+  if(!handle){
+    const cached = localStorage.getItem(cacheKey(v.id));
+    const parsed = parseFile(cached || '');
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+    runAutoResets(false);
+    return;
+  }
+  try{
+    const perm = await handle.queryPermission({mode:'readwrite'});
+    if(perm === 'granted'){
+      fsaHandles.set(v.id, handle);
+      const file = await handle.getFile();
+      const parsed = parseFile(await file.text());
+      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+      runAutoResets(false);
+    } else {
+      const cached = localStorage.getItem(cacheKey(v.id));
+      const parsed = parseFile(cached || '');
+      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+      runAutoResets(false);
+    }
+  }catch(e){}
+}
+async function fsaAddExisting(){
+  try{
+    const [handle] = await window.showOpenFilePicker({types:[{description:'Markdown', accept:{'text/markdown':['.md'], 'text/plain':['.txt']}}]});
+    const id = uid();
+    vaults.push({id, name: handle.name});
+    activeVaultId = id;
+    fsaHandles.set(id, handle);
+    await storeHandle(id, handle);
+    const file = await handle.getFile();
+    const parsed = parseFile(await file.text());
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+    runAutoResets(false);
+    saveLocalMeta();
+    render();
+    toast('Vault file loaded');
+  }catch(e){}
+}
+async function fsaAddNew(){
+  try{
+    const handle = await window.showSaveFilePicker({suggestedName:'tasks.md', types:[{description:'Markdown', accept:{'text/markdown':['.md']}}]});
+    const id = uid();
+    vaults.push({id, name: handle.name});
+    activeVaultId = id;
+    fsaHandles.set(id, handle);
+    await storeHandle(id, handle);
+    tasks = [];
+    sidebarNotes = defaultNotes();
+    dayResetTime = '00:00';
+    saveLocalMeta();
+    save();
+    toast('New vault file created');
+  }catch(e){}
+}
+async function fsaSwitch(id){
+  activeVaultId = id;
+  saveLocalMeta();
+  await fsaLoadActive();
+  render();
+}
+async function fsaClose(id){
+  vaults = vaults.filter(v=>v.id!==id);
+  fsaHandles.delete(id);
+  forgetHandle(id);
+  localStorage.removeItem(cacheKey(id));
+  if(activeVaultId===id){
+    ensureAtLeastOneVault();
+    await fsaLoadActive();
+  }
+  saveLocalMeta();
+  render();
+}
+async function fsaDeleteFile(id){
+  const handle = fsaHandles.get(id) || await loadHandle(id);
+  try{
+    if(handle && typeof handle.remove === 'function'){
+      await handle.remove();
+      toast('File deleted');
+    } else {
+      toast("Your browser can't delete files — removed the tab only");
+    }
+  }catch(e){
+    toast('Could not delete file — removed the tab only');
+  }
+  await fsaClose(id);
+}
+
+// ---------- memory / fallback backend (no FSA, no Electron — Import/Export only) ----------
+function loadLocalMeta(){
+  try{
+    const raw = localStorage.getItem('cadence_vaults_meta');
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function saveLocalMeta(){
+  try{
+    localStorage.setItem('cadence_vaults_meta', JSON.stringify({
+      vaults: vaults.map(v=>({id:v.id, name:v.name})),
+      activeVaultId
+    }));
+  }catch(e){}
+}
+function memoryBootLoad(){
+  const meta = loadLocalMeta();
+  if(meta && meta.vaults && meta.vaults.length){
+    vaults = meta.vaults;
+    activeVaultId = (meta.activeVaultId && meta.vaults.find(v=>v.id===meta.activeVaultId)) ? meta.activeVaultId : meta.vaults[0].id;
+    const cached = localStorage.getItem(cacheKey(activeVaultId));
+    const parsed = parseFile(cached || '');
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+    runAutoResets(false);
+  } else {
+    const legacy = localStorage.getItem('cadence_cache');
+    const id = uid();
+    vaults = [{id, name:'Untitled'}];
+    activeVaultId = id;
+    const parsed = parseFile(legacy || '');
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+    runAutoResets(false);
+    if(legacy) localStorage.setItem(cacheKey(id), legacy);
+    saveLocalMeta();
+  }
+}
+function memoryAddNamed(){
+  const name = prompt('Name for this list (e.g. "Wuthering Waves", "Genshin")', 'New list');
+  if(!name) return;
+  const id = uid();
+  vaults.push({id, name: name.trim() || 'Untitled'});
+  activeVaultId = id;
+  tasks = [];
+  sidebarNotes = defaultNotes();
+  dayResetTime = '00:00';
+  saveLocalMeta();
+  save();
+  toast('New list created — use Import/Export to move it in and out of your synced folder');
+}
+function memorySwitch(id){
+  activeVaultId = id;
+  const cached = localStorage.getItem(cacheKey(id));
+  const parsed = parseFile(cached || '');
+  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+  runAutoResets(false);
+  saveLocalMeta();
+  render();
+}
+function memoryClose(id){
+  vaults = vaults.filter(v=>v.id!==id);
+  localStorage.removeItem(cacheKey(id));
+  if(activeVaultId===id){
+    ensureAtLeastOneVault();
+    const cached = localStorage.getItem(cacheKey(activeVaultId));
+    const parsed = parseFile(cached || '');
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+    runAutoResets(false);
+  }
+  saveLocalMeta();
+  render();
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(()=> t.classList.remove('show'), 2600);
+}
+
+// ---------- persistence (writes whichever vault was ACTIVE at the moment
+// save() was called, captured synchronously — NOT whatever happens to be
+// active by the time the debounce timer fires. Without this, quickly
+// switching tabs right after an edit would silently write the new tab's
+// (wrong) content over the old tab's cache, or lose the edit entirely. ----------
+let saveTimer = null;
+let sidebarSaveTimer = null;
+function persistVault(v, text){
+  (async ()=>{
+    if(hasNative && v && v.path){
+      try{ await window.cadenceBridge.writeFile(v.path, text); }
+      catch(e){ toast('Could not write to file — reopen it'); }
+    } else if(hasFSA && v && fsaHandles.get(v.id)){
+      try{
+        const writable = await fsaHandles.get(v.id).createWritable();
+        await writable.write(text);
+        await writable.close();
+      }catch(e){ toast('Could not write to file — reopen it'); }
+    }
+    if(v) localStorage.setItem(cacheKey(v.id), text);
+  })();
+}
+// Full save: re-renders the task list/sidebar/tabs, then writes to disk.
+function save(){
+  render();
+  const v = activeVault();
+  const text = serialize();
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=> persistVault(v, text), 350);
+}
+// Lightweight save for sidebar note edits: writes to disk WITHOUT
+// re-rendering the sidebar DOM, so the textarea the person is typing in
+// never loses focus/cursor position mid-keystroke.
+function scheduleSidebarSave(){
+  const v = activeVault();
+  const text = serialize();
+  if(sidebarSaveTimer) clearTimeout(sidebarSaveTimer);
+  sidebarSaveTimer = setTimeout(()=> persistVault(v, text), 400);
+}
+
+function exportDownload(){
+  const blob = new Blob([serialize()], {type:'text/markdown'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const v = activeVault();
+  a.download = (v && v.name ? v.name.replace(/[^\w.-]+/g,'_') : 'tasks') + (/\.(md|txt)$/i.test(v&&v.name||'') ? '' : '.md');
+  a.click();
+  toast('Downloaded ' + a.download);
+}
+document.getElementById('fileImportInput').onchange = async (e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const text = await f.text();
+  const parsed = parseFile(text);
+  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00';
+  runAutoResets(false);
+  const v = activeVault();
+  if(v) v.name = f.name.replace(/\.(md|txt)$/i,'') || v.name;
+  save();
+  toast('Imported ' + f.name);
+};
+
+// ---- remember FSA handles across reloads (browser only) via IndexedDB ----
+function idb(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open('cadence-db',1);
+    r.onupgradeneeded = ()=> r.result.createObjectStore('handles');
+    r.onsuccess = ()=> res(r.result);
+    r.onerror = ()=> rej(r.error);
+  });
+}
+async function storeHandle(id, handle){
+  try{
+    const db = await idb();
+    const tx = db.transaction('handles','readwrite');
+    tx.objectStore('handles').put(handle, id);
+  }catch(e){}
+}
+function loadHandle(id){
+  return idb().then(db=> new Promise((res)=>{
+    try{
+      const tx = db.transaction('handles','readonly');
+      const req = tx.objectStore('handles').get(id);
+      req.onsuccess = ()=> res(req.result || null);
+      req.onerror = ()=> res(null);
+    }catch(e){ res(null); }
+  })).catch(()=>null);
+}
+async function forgetHandle(id){
+  try{
+    const db = await idb();
+    const tx = db.transaction('handles','readwrite');
+    tx.objectStore('handles').delete(id);
+  }catch(e){}
+}
+
+// ---------- add / edit modal ----------
+function openAdd(){ editingId = null; openModal({title:'', repeat:'none', days:[], due:'', time:'00:00', subtasks:[]}); }
+function openEdit(id){
+  const g = tasks.find(x=>x.id===id);
+  if(!g) return;
+  editingId = id;
+  openModal({title:g.title, repeat:g.repeat, days:g.days||[], due:g.due||'', time:g.time||'00:00', subtasks:g.subtasks.map(s=>({...s}))});
+}
+function openModal(data){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>${editingId? 'Edit task' : 'New task'}</h2>
+      <div class="field"><label>Title</label><input type="text" id="mTitle" placeholder="e.g. Weekly groceries"></div>
+      <div class="field"><label>Subtasks</label>
+        <div class="sub-editor" id="mSubEditor"></div>
+        <input type="text" id="mSubAdd" class="sub-add-input" placeholder="+ add subtask, press Enter">
+      </div>
+      <div class="field"><label>Repeat</label>
+        <select id="mRepeat">
+          <option value="none">Does not repeat</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="field" id="mDaysField" style="display:none;"><label>On these days</label>
+        <div class="weekdays" id="mDays">${WD.map((d,i)=>`<button type="button" class="wd" data-d="${i}">${d}</button>`).join('')}</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="field" style="flex:1;"><label>Due date</label><input type="date" id="mDue"></div>
+        <div class="field" style="flex:1;"><label id="mTimeLabel">Time</label><input type="time" id="mTime"></div>
+      </div>
+      <div class="modal-actions">
+        ${editingId? '<button class="btn danger" id="mDelete">Delete</button>' : ''}
+        <button class="btn" id="mCancel">Cancel</button>
+        <button class="btn primary" id="mSave">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#mTitle').value = data.title;
+  overlay.querySelector('#mRepeat').value = data.repeat;
+  overlay.querySelector('#mDue').value = data.due || '';
+  overlay.querySelector('#mTime').value = data.time || '00:00';
+  const daysField = overlay.querySelector('#mDaysField');
+  const daysWrap = overlay.querySelector('#mDays');
+  const timeLabel = overlay.querySelector('#mTimeLabel');
+  let selDays = new Set(data.days);
+  function syncDaysUI(){
+    const isRepeating = overlay.querySelector('#mRepeat').value !== 'none';
+    daysField.style.display = overlay.querySelector('#mRepeat').value==='weekly' ? 'block':'none';
+    timeLabel.textContent = isRepeating ? 'Reset time' : 'Due time';
+    [...daysWrap.children].forEach(b=> b.classList.toggle('on', selDays.has(Number(b.dataset.d))));
+  }
+  syncDaysUI();
+  overlay.querySelector('#mRepeat').onchange = syncDaysUI;
+  daysWrap.onclick = (e)=>{
+    const b = e.target.closest('.wd'); if(!b) return;
+    const d = Number(b.dataset.d);
+    if(selDays.has(d)) selDays.delete(d); else selDays.add(d);
+    syncDaysUI();
+  };
+
+  // ---- subtask editor: full CRUD lives here now, not on the main page ----
+  let modalSubs = data.subtasks.map(s=>({...s}));
+  const subEditor = overlay.querySelector('#mSubEditor');
+  function renderSubEditor(){
+    subEditor.innerHTML = '';
+    if(!modalSubs.length){
+      subEditor.innerHTML = '<div class="sub-empty">No subtasks yet.</div>';
+      return;
+    }
+    for(const s of modalSubs){
+      const row = document.createElement('div');
+      row.className = 'sub-row';
+      const cb = document.createElement('div');
+      cb.className = 'checkbox' + (s.done ? ' checked':'');
+      cb.textContent = s.done ? '✓' : '';
+      cb.onclick = ()=>{ s.done = !s.done; renderSubEditor(); };
+      row.appendChild(cb);
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.value = s.title;
+      inp.oninput = ()=>{ s.title = inp.value; };
+      row.appendChild(inp);
+      const rm = document.createElement('button');
+      rm.className = 'rm'; rm.textContent = '✕'; rm.title = 'Remove subtask';
+      rm.onclick = ()=>{ modalSubs = modalSubs.filter(x=>x!==s); renderSubEditor(); };
+      row.appendChild(rm);
+      subEditor.appendChild(row);
+    }
+  }
+  renderSubEditor();
+  const subAddInput = overlay.querySelector('#mSubAdd');
+  subAddInput.onkeydown = (e)=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      if(subAddInput.value.trim()){
+        modalSubs.push({id:uid(), title:subAddInput.value.trim(), done:false});
+        subAddInput.value='';
+        renderSubEditor();
+      }
+    }
+  };
+
+  overlay.querySelector('#mCancel').onclick = ()=> overlay.remove();
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  if(editingId){
+    overlay.querySelector('#mDelete').onclick = ()=>{
+      if(confirm('Delete this task?')){ deleteGroup(editingId); overlay.remove(); }
+    };
+  }
+  overlay.querySelector('#mSave').onclick = ()=>{
+    const title = overlay.querySelector('#mTitle').value.trim();
+    if(!title){ toast('Title required'); return; }
+    const repeat = overlay.querySelector('#mRepeat').value;
+    const due = overlay.querySelector('#mDue').value || null;
+    const time = overlay.querySelector('#mTime').value || '00:00';
+    const finalSubs = modalSubs.filter(s=>s.title.trim()).map(s=>({id:s.id||uid(), title:s.title.trim(), done:!!s.done}));
+    if(editingId){
+      const g = tasks.find(x=>x.id===editingId);
+      g.title = title; g.repeat = repeat; g.days = [...selDays]; g.due = due; g.time = time;
+      g.subtasks = finalSubs;
+    } else {
+      tasks.push({
+        id: uid(), title, repeat, days:[...selDays], due, time,
+        history: [], archived:false,
+        subtasks: finalSubs
+      });
+    }
+    save();
+    overlay.remove();
+  };
+}
+
+document.getElementById('btnAdd').onclick = openAdd;
+
+// ---------- boot ----------
+(async function init(){
+  await bootVaults();
+  render();
+
+  setInterval(()=> runAutoResets(true), 60*1000);
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible') runAutoResets(true);
+  });
+})();
+</script>
+<script>
+/* ---------------------------------------------------------------
+   Update checker (renderer side). Self-contained on purpose: it builds its
+   own UI, styles itself with the app's theme variables and touches nothing
+   else on the page. Only active inside the Electron app, where the bridge
+   exists. It never downloads anything itself — it opens the installer link
+   in the browser.
+   --------------------------------------------------------------- */
+(function(){
+  const bridge = window.cadenceBridge;
+  if(!bridge || typeof bridge.checkForUpdates !== 'function') return;
+
+  const DISMISS_KEY = 'cadence_update_dismissed';
+  let appVersion = '';
+  let busy = false;
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .cdu-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:9px 12px;
+      border:1px solid var(--amber,#D4A24C);border-radius:3px;background:var(--bg-card,#20261F);
+      color:var(--ink,#E8E3D3);font-size:12.5px;}
+    .cdu-banner .cdu-msg{flex:1;min-width:160px;}
+    .cdu-btn{border:1px solid var(--rule,#38402F);background:none;color:var(--ink-dim,#9BA096);font-family:inherit;
+      font-size:12px;padding:6px 11px;border-radius:2px;cursor:pointer;}
+    .cdu-btn:hover{color:var(--ink,#E8E3D3);border-color:var(--dusty,#7C93A6);}
+    .cdu-btn:disabled{opacity:.5;cursor:default;}
+    .cdu-btn.primary{background:var(--amber,#D4A24C);border-color:var(--amber,#D4A24C);color:#1E2320;font-weight:600;}
+    .cdu-footer{margin-top:28px;text-align:center;font-size:11.5px;color:var(--ink-faint,#6C7169);}
+    .cdu-footer button{background:none;border:none;color:inherit;font:inherit;cursor:pointer;
+      text-decoration:underline;padding:0;}
+    .cdu-footer button:hover{color:var(--ink,#E8E3D3);}
+    .cdu-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;
+      justify-content:center;z-index:200;padding:16px;}
+    .cdu-box{background:var(--bg-elevated,#252B26);border:1px solid var(--rule,#38402F);border-radius:4px;
+      padding:20px 22px;width:100%;max-width:380px;color:var(--ink,#E8E3D3);box-shadow:0 12px 40px rgba(0,0,0,.5);}
+    .cdu-box h2{font-family:'Zilla Slab',serif;font-size:19px;margin:0 0 12px;}
+    .cdu-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:4px 0;}
+    .cdu-row span:first-child{color:var(--ink-faint,#6C7169);}
+    .cdu-status{margin:12px 0 2px;font-size:12.5px;color:var(--ink-dim,#9BA096);line-height:1.5;}
+    .cdu-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap;}
+  `;
+  document.head.appendChild(style);
+
+  function h(tag, cls, text){
+    const e = document.createElement(tag);
+    if(cls) e.className = cls;
+    if(text != null) e.textContent = text;
+    return e;
+  }
+  const cleanTag = (t) => String(t || '').replace(/^v/i, '');
+  function readDismissed(){ try{ return localStorage.getItem(DISMISS_KEY); }catch(e){ return null; } }
+  function writeDismissed(v){ try{ localStorage.setItem(DISMISS_KEY, v); }catch(e){} }
+
+  async function runCheck(){
+    try{ return await bridge.checkForUpdates(); }
+    catch(e){ return { ok: false, error: 'network' }; }
+  }
+  async function openUrl(url){
+    if(!url || typeof bridge.openUpdateUrl !== 'function') return false;
+    try{ return !!(await bridge.openUpdateUrl(url)); }catch(e){ return false; }
+  }
+  function statusText(res){
+    if(!res.ok){
+      return res.error === 'rate-limited'
+        ? 'GitHub is limiting requests from this connection right now. Try again in a while.'
+        : "Couldn't reach GitHub. Check your internet connection and try again.";
+    }
+    if(res.none) return 'No releases have been published yet.';
+    if(res.newer) return 'Cadence ' + cleanTag(res.latest) + ' is available.';
+    return "You're on the latest version.";
+  }
+
+  // ---- banner (shown at launch when a newer release exists) ----
+  function removeBanner(){
+    const b = document.getElementById('cduBanner');
+    if(b) b.remove();
+  }
+  function showBanner(res){
+    removeBanner();
+    const banner = h('div', 'cdu-banner');
+    banner.id = 'cduBanner';
+    banner.appendChild(h('div', 'cdu-msg',
+      'Cadence ' + cleanTag(res.latest) + ' is available' + (appVersion ? ' (you have ' + appVersion + ')' : '') + '.'));
+    const primary = h('button', 'cdu-btn primary', res.downloadUrl ? 'Download installer' : 'View release');
+    primary.onclick = () => openUrl(res.downloadUrl || res.releaseUrl);
+    banner.appendChild(primary);
+    if(res.downloadUrl && res.releaseUrl){
+      const notes = h('button', 'cdu-btn', 'Release notes');
+      notes.onclick = () => openUrl(res.releaseUrl);
+      banner.appendChild(notes);
+    }
+    const x = h('button', 'cdu-btn', '✕');
+    x.title = 'Dismiss';
+    x.onclick = () => { writeDismissed(res.latest); removeBanner(); };
+    banner.appendChild(x);
+    const toolbar = document.getElementById('toolbar');
+    if(toolbar && toolbar.parentNode) toolbar.parentNode.insertBefore(banner, toolbar);
+    else (document.querySelector('.wrap') || document.body).prepend(banner);
+  }
+
+  // ---- "Updates" dialog (opened from the footer link) ----
+  function openDialog(){
+    if(document.getElementById('cduOverlay')) return;
+    const ov = h('div', 'cdu-ov');
+    ov.id = 'cduOverlay';
+    const box = h('div', 'cdu-box');
+    box.appendChild(h('h2', null, 'Updates'));
+
+    function row(label, value){
+      const r = h('div', 'cdu-row');
+      r.appendChild(h('span', null, label));
+      const v = h('span', null, value);
+      r.appendChild(v);
+      box.appendChild(r);
+      return v;
+    }
+    row('Installed', appVersion ? 'v' + appVersion : 'unknown');
+    const latestVal = row('Latest release', '—');
+    const status = h('div', 'cdu-status', 'Checking…');
+    box.appendChild(status);
+    const actions = h('div', 'cdu-actions');
+    box.appendChild(actions);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+
+    function close(){
+      document.removeEventListener('keydown', onKey);
+      ov.remove();
+    }
+    function onKey(e){ if(e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+
+    function renderActions(res, checkBtnDisabled){
+      actions.innerHTML = '';
+      const closeBtn = h('button', 'cdu-btn', 'Close');
+      closeBtn.onclick = close;
+      actions.appendChild(closeBtn);
+      const again = h('button', 'cdu-btn', 'Check again');
+      again.disabled = !!checkBtnDisabled;
+      again.onclick = check;
+      actions.appendChild(again);
+      if(res && res.ok && !res.none){
+        if(res.releaseUrl){
+          const notes = h('button', 'cdu-btn', 'Release notes');
+          notes.onclick = () => openUrl(res.releaseUrl);
+          actions.appendChild(notes);
+        }
+        if(res.newer){
+          const dl = h('button', 'cdu-btn primary', res.downloadUrl ? 'Download installer' : 'View release');
+          dl.onclick = () => openUrl(res.downloadUrl || res.releaseUrl);
+          actions.appendChild(dl);
+        }
+      }
+    }
+
+    async function check(){
+      if(busy) return;
+      busy = true;
+      status.textContent = 'Checking…';
+      renderActions(null, true);
+      const res = await runCheck();
+      busy = false;
+      if(!document.getElementById('cduOverlay')) return;   // closed while checking
+      latestVal.textContent = (res.ok && !res.none) ? 'v' + cleanTag(res.latest) : '—';
+      status.textContent = statusText(res);
+      renderActions(res, false);
+    }
+    check();
+  }
+
+  // ---- footer link: "Cadence v1.12.0 · Check for updates" ----
+  function addFooter(){
+    const footer = h('div', 'cdu-footer');
+    if(appVersion) footer.appendChild(document.createTextNode('Cadence v' + appVersion + ' · '));
+    const link = h('button', null, 'Check for updates');
+    link.onclick = openDialog;
+    footer.appendChild(link);
+    (document.querySelector('.wrap') || document.body).appendChild(footer);
+  }
+
+  async function init(){
+    try{
+      if(typeof bridge.getAppVersion === 'function') appVersion = (await bridge.getAppVersion()) || '';
+    }catch(e){}
+    addFooter();
+    // Quiet check shortly after launch; only speaks up if there is something new
+    // that the person has not already dismissed.
+    setTimeout(async () => {
+      const res = await runCheck();
+      if(res.ok && res.newer && readDismissed() !== res.latest) showBanner(res);
+    }, 3000);
+  }
+  init();
+})();
+</script>
+</body>
+</html>
