@@ -86,9 +86,11 @@
   .tab{
     display:flex;align-items:center;justify-content:center;padding:9px 8px;border:1px solid var(--rule);
     border-radius:var(--radius);background:var(--bg-elevated);color:var(--ink-dim);font-size:12.5px;
-    cursor:pointer;width:0.75in;text-align:center;
+    cursor:pointer;width:1in;text-align:center;
   }
   .tab.active{background:var(--bg-card);color:var(--ink);border-color:var(--dusty);}
+  .tab.dragging{opacity:0.4;}
+  .tab.drag-over{border-color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber);}
   .tab .tabname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
   .tab.addtab{width:auto;color:var(--ink-faint);border-style:dashed;padding:9px 16px;}
   .tab.addtab:hover{color:var(--ink);border-color:var(--dusty);}
@@ -210,6 +212,13 @@
     cursor:pointer;background:none;font-family:inherit;
   }
   .wd.on{background:var(--amber);border-color:var(--amber);color:#1E2320;font-weight:600;}
+  .day-btn-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
+  .day-btn{
+    border:1px solid var(--rule);color:var(--ink-dim);font-size:11px;padding:6px 10px;border-radius:2px;
+    cursor:pointer;background:none;font-family:inherit;
+  }
+  .day-btn:hover{border-color:var(--dusty);color:var(--ink);}
+  .day-btn.active{background:var(--amber);border-color:var(--amber);color:#1E2320;font-weight:600;}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
   .hint-small{font-size:11px;color:var(--ink-faint);line-height:1.5;margin:-6px 0 4px;}
   .btn{border:1px solid var(--rule);background:none;color:var(--ink-dim);font-family:inherit;font-size:12.5px;
@@ -336,6 +345,7 @@ let dayResetTime = '00:00';  // HH:MM — when the sidebar's "today" flips to th
 let completedTtlHours = 0;   // hours after completion before a task auto-deletes; 0 = never; per-vault
 let hideDailySidebar = false; // per-vault: hide the weekday tasklist sidebar for this tab
 let hideSubtaskBar = false;  // per-vault: hide the inline "add subtask" row on task cards
+let dayWeekAnchor = {};      // per-vault: {mon:'2026-08-24', ...} — which week's Monday each weekday's tasklist was last reset for
 let vaults = [];             // [{id, name, path?}] — path is set for native-tracked vaults
 let activeVaultId = null;
 let fsaHandles = new Map();  // FSA (browser) mode only: vault id -> FileSystemFileHandle, in-memory
@@ -437,7 +447,8 @@ function serialize(){
   out += '<!-- day-reset-time: ' + (dayResetTime || '00:00') + ' -->\n';
   out += '<!-- completed-ttl: ' + (completedTtlHours || 0) + ' -->\n';
   out += '<!-- hide-daily: ' + (hideDailySidebar ? 1 : 0) + ' -->\n';
-  out += '<!-- hide-subtask-bar: ' + (hideSubtaskBar ? 1 : 0) + ' -->\n\n';
+  out += '<!-- hide-subtask-bar: ' + (hideSubtaskBar ? 1 : 0) + ' -->\n';
+  out += '<!-- day-week-anchor: ' + b64encode(JSON.stringify(dayWeekAnchor)) + ' -->\n\n';
   for(const g of tasks){
     out += '## ' + g.title + '\n';
     const subDue = {};
@@ -477,6 +488,7 @@ function parseFile(text){
   let ttl = 0;
   let hideDaily = false;
   let hideSubBar = false;
+  let weekAnchor = null;
   let cur = null;
   for(const line of lines){
     const sb = line.match(/^<!--\s*sidebar-notes:\s*([A-Za-z0-9+/=]+)\s*-->$/);
@@ -484,6 +496,7 @@ function parseFile(text){
     const ttlm = line.match(/^<!--\s*completed-ttl:\s*(\d+)\s*-->$/);
     const hdm = line.match(/^<!--\s*hide-daily:\s*([01])\s*-->$/);
     const hsm = line.match(/^<!--\s*hide-subtask-bar:\s*([01])\s*-->$/);
+    const wam = line.match(/^<!--\s*day-week-anchor:\s*([A-Za-z0-9+/=]+)\s*-->$/);
     const h = line.match(/^##\s+(.*)$/);
     const m = line.match(/^<!--\s*meta:\s*(\{.*\})\s*-->$/);
     const c = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
@@ -497,6 +510,8 @@ function parseFile(text){
       hideDaily = hdm[1] === '1';
     } else if(hsm){
       hideSubBar = hsm[1] === '1';
+    } else if(wam){
+      try{ weekAnchor = JSON.parse(b64decode(wam[1])); }catch(e){}
     } else if(h){
       cur = {id:uid(), title:h[1].trim(), repeat:'none', days:[], due:null, time:'00:00', history:[], archived:false, completed:false, completedAt:null, comment:'', subtasks:[], _subDue:{}};
       groups.push(cur);
@@ -522,7 +537,7 @@ function parseFile(text){
     }
   }
   for(const g of groups) delete g._subDue;
-  return {tasks: groups, sidebarNotes: migrateNotes(rawNotes), dayResetTime: resetTime, completedTtlHours: ttl, hideDailySidebar: hideDaily, hideSubtaskBar: hideSubBar};
+  return {tasks: groups, sidebarNotes: migrateNotes(rawNotes), dayResetTime: resetTime, completedTtlHours: ttl, hideDailySidebar: hideDaily, hideSubtaskBar: hideSubBar, dayWeekAnchor: weekAnchor || {}};
 }
 
 // ---------- status / grouping ----------
@@ -611,6 +626,7 @@ function completeCycle(g, opts={}){
   }
 }
 function runAutoResets(announce){
+  checkWeeklySidebarReset();
   const now = new Date();
   let resetCount = 0;
   let healed = false;
@@ -811,20 +827,55 @@ function renderGroup(g){
   return el;
 }
 
-// Which weekday counts as "today" for the sidebar, honoring this vault's
-// day-reset time. If the clock hasn't hit that time yet, we're still in
-// yesterday's logical day (e.g. reset time 6:00 AM, it's 2:00 AM -> still
-// "yesterday" for the sidebar).
-function logicalTodayKey(){
+// The "logical now" for the sidebar, honoring this vault's day-reset time.
+// If the clock hasn't hit that time yet, we're still logically in
+// yesterday (e.g. reset time 6:00 AM, it's 2:00 AM -> still "yesterday").
+function logicalNow(){
   const now = new Date();
   const [hh, mm] = (dayResetTime || '00:00').split(':').map(Number);
   const resetMoment = new Date(now);
   resetMoment.setHours(hh, mm, 0, 0);
-  let dow = now.getDay();
   if(now < resetMoment){
-    dow = (dow + 6) % 7; // yesterday
+    const y = new Date(now);
+    y.setDate(y.getDate()-1);
+    return y;
   }
-  return DOW_TO_KEY[dow];
+  return now;
+}
+function logicalTodayKey(){
+  return DOW_TO_KEY[logicalNow().getDay()];
+}
+// ISO date of the Monday that starts the current logical week — used to
+// detect "this weekday has come back around" for the sidebar's weekly reset.
+function currentWeekAnchorISO(){
+  const d = logicalNow();
+  const dow = d.getDay(); // 0=Sun..6=Sat
+  const diffToMonday = (dow===0) ? 6 : dow-1;
+  const monday = new Date(d);
+  monday.setDate(monday.getDate() - diffToMonday);
+  return isoOf(monday);
+}
+// A day's tasklist should start fresh each time that weekday comes back
+// around — otherwise a task checked off last Monday would still show
+// checked next Monday. Tracks, per weekday, which week it was last reset
+// for for; resets that day's items the first time it's touched in a new week.
+function checkWeeklySidebarReset(){
+  const anchor = currentWeekAnchorISO();
+  // First time this vault has seen this feature at all (a fresh vault, or
+  // one saved before it existed) — stamp every day at the current week
+  // without wiping anything the person already has checked off.
+  if(Object.keys(dayWeekAnchor).length === 0){
+    for(const k of DAY_KEYS) dayWeekAnchor[k] = anchor;
+    save();
+    return;
+  }
+  const key = logicalTodayKey();
+  if(dayWeekAnchor[key] === anchor) return;
+  dayWeekAnchor[key] = anchor;
+  if((sidebarNotes[key]||[]).some(it=>it.done)){
+    sidebarNotes[key].forEach(it=> it.done=false);
+  }
+  save();
 }
 
 // ---- weekday sidebar: shows just today's tasklist, saved with the file.
@@ -929,9 +980,9 @@ function openTabSettings(){
       </div>
       <div class="field">
         <label>Edit tasks for</label>
-        <select id="sDaySelect">
-          ${DAY_KEYS.map(k=>`<option value="${k}">${DAY_LABELS[k]}</option>`).join('')}
-        </select>
+        <div class="day-btn-row" id="sDayBtns">
+          ${DAY_KEYS.map(k=>`<button type="button" class="day-btn" data-day="${k}">${DAY_LABELS[k]}</button>`).join('')}
+        </div>
       </div>
       <div class="field">
         <label>One task per line</label>
@@ -951,16 +1002,18 @@ function openTabSettings(){
   overlay.querySelector('#sHideDaily').checked = !!hideDailySidebar;
   overlay.querySelector('#sHideSubtaskBar').checked = !!hideSubtaskBar;
 
-  const daySelect = overlay.querySelector('#sDaySelect');
+  const dayBtnRow = overlay.querySelector('#sDayBtns');
+  const dayBtns = Array.from(dayBtnRow.querySelectorAll('.day-btn'));
   const dayText = overlay.querySelector('#sDayText');
   let currentDay = logicalTodayKey();
-  daySelect.value = currentDay;
-  dayText.value = dayBuffer[currentDay];
-  daySelect.onchange = ()=>{
-    dayBuffer[currentDay] = dayText.value;
-    currentDay = daySelect.value;
+  function selectDay(day, opts={}){
+    if(!opts.initial) dayBuffer[currentDay] = dayText.value;
+    currentDay = day;
     dayText.value = dayBuffer[currentDay];
-  };
+    dayBtns.forEach(b=> b.classList.toggle('active', b.dataset.day===currentDay));
+  }
+  dayBtns.forEach(b=> b.onclick = ()=> selectDay(b.dataset.day));
+  selectDay(currentDay, {initial:true});
 
   overlay.querySelector('#sCancel').onclick = ()=> overlay.remove();
   overlay.querySelector('#sSave').onclick = ()=>{
@@ -1007,6 +1060,7 @@ function displayTabName(name){
 }
 
 // ---- tabs bar (vault switcher) ----
+let dragTabId = null;
 function renderTabsBar(){
   const bar = document.getElementById('tabsbar');
   if(!bar) return;
@@ -1015,6 +1069,7 @@ function renderTabsBar(){
     const tab = document.createElement('div');
     tab.className = 'tab' + (v.id===activeVaultId ? ' active':'');
     tab.title = v.path || v.name || '';
+    tab.draggable = true;
     const nameSpan = document.createElement('span');
     nameSpan.className = 'tabname';
     nameSpan.textContent = displayTabName(v.name);
@@ -1022,6 +1077,28 @@ function renderTabsBar(){
     tab.onclick = ()=> switchTab(v.id);
     tab.ondblclick = (e)=>{ e.stopPropagation(); renameTab(v.id); };
     tab.oncontextmenu = (e)=> openTabContextMenu(e, v);
+    tab.ondragstart = (e)=>{
+      dragTabId = v.id;
+      e.dataTransfer.effectAllowed = 'move';
+      tab.classList.add('dragging');
+    };
+    tab.ondragend = ()=>{
+      dragTabId = null;
+      bar.querySelectorAll('.tab').forEach(t=>t.classList.remove('dragging','drag-over'));
+    };
+    tab.ondragover = (e)=>{
+      if(!dragTabId || dragTabId===v.id) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      tab.classList.add('drag-over');
+    };
+    tab.ondragleave = ()=> tab.classList.remove('drag-over');
+    tab.ondrop = (e)=>{
+      e.preventDefault();
+      tab.classList.remove('drag-over');
+      if(!dragTabId || dragTabId===v.id) return;
+      reorderVaultTab(dragTabId, v.id);
+    };
     bar.appendChild(tab);
   }
   const addTab = document.createElement('div');
@@ -1030,6 +1107,21 @@ function renderTabsBar(){
   addTab.title = 'Add a list';
   addTab.onclick = (e)=> openAddTabMenu(e, addTab);
   bar.appendChild(addTab);
+}
+// Drag-and-drop tab reordering: moves the dragged tab to sit where the
+// drop-target tab was, persists the new order, then re-renders.
+function reorderVaultTab(draggedId, targetId){
+  const fromIdx = vaults.findIndex(v=>v.id===draggedId);
+  const toIdx = vaults.findIndex(v=>v.id===targetId);
+  if(fromIdx===-1 || toIdx===-1) return;
+  const [moved] = vaults.splice(fromIdx,1);
+  vaults.splice(toIdx,0,moved);
+  if(hasNative && typeof window.cadenceBridge.reorderVaults === 'function'){
+    window.cadenceBridge.reorderVaults(vaults.map(v=>v.id));
+  } else if(!hasNative){
+    saveLocalMeta();
+  }
+  renderTabsBar();
 }
 function renameTab(id){
   const v = vaults.find(x=>x.id===id);
@@ -1132,7 +1224,7 @@ function applyLoadedContent(text){
   sidebarNotes = parsed.sidebarNotes;
   dayResetTime = parsed.dayResetTime || '00:00';
   completedTtlHours = parsed.completedTtlHours || 0;
-  hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+  hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
   runAutoResets(false);
   runCompletedCleanup();
   render();
@@ -1148,6 +1240,7 @@ function ensureAtLeastOneVault(){
     completedTtlHours = 0;
     hideDailySidebar = false;
     hideSubtaskBar = false;
+    dayWeekAnchor = {};
   }
   if(!activeVaultId || !vaults.find(v=>v.id===activeVaultId)){
     activeVaultId = vaults[0].id;
@@ -1230,6 +1323,7 @@ async function connectNewToCurrent(){
     completedTtlHours = 0;
     hideDailySidebar = false;
     hideSubtaskBar = false;
+    dayWeekAnchor = {};
     save();
     toast('New vault file created');
   } else if(hasFSA){
@@ -1248,6 +1342,7 @@ async function connectNewToCurrent(){
       completedTtlHours = 0;
       hideDailySidebar = false;
       hideSubtaskBar = false;
+      dayWeekAnchor = {};
       saveLocalMeta();
       save();
       toast('New vault file created');
@@ -1267,6 +1362,7 @@ async function nativeBootLoad(){
     completedTtlHours = 0;
     hideDailySidebar = false;
     hideSubtaskBar = false;
+    dayWeekAnchor = {};
     return;
   }
   if(res.error === 'missing'){
@@ -1277,13 +1373,14 @@ async function nativeBootLoad(){
     completedTtlHours = 0;
     hideDailySidebar = false;
     hideSubtaskBar = false;
+    dayWeekAnchor = {};
   } else {
     const parsed = parseFile(res.content || '');
     tasks = parsed.tasks;
     sidebarNotes = parsed.sidebarNotes;
     dayResetTime = parsed.dayResetTime || '00:00';
     completedTtlHours = parsed.completedTtlHours || 0;
-    hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+    hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
     runAutoResets(false);
     runCompletedCleanup();
   }
@@ -1308,6 +1405,7 @@ async function nativeAddNew(){
   completedTtlHours = 0;
   hideDailySidebar = false;
   hideSubtaskBar = false;
+  dayWeekAnchor = {};
   save();
   toast('New vault file created');
 }
@@ -1323,6 +1421,7 @@ async function nativeSwitch(id){
     completedTtlHours = 0;
     hideDailySidebar = false;
     hideSubtaskBar = false;
+    dayWeekAnchor = {};
     render();
     return;
   }
@@ -1383,7 +1482,7 @@ async function fsaLoadActive(){
   if(!handle){
     const cached = localStorage.getItem(cacheKey(v.id));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
     runAutoResets(false);
     runCompletedCleanup();
     return;
@@ -1394,13 +1493,13 @@ async function fsaLoadActive(){
       fsaHandles.set(v.id, handle);
       const file = await handle.getFile();
       const parsed = parseFile(await file.text());
-      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
       runAutoResets(false);
       runCompletedCleanup();
     } else {
       const cached = localStorage.getItem(cacheKey(v.id));
       const parsed = parseFile(cached || '');
-      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
       runAutoResets(false);
       runCompletedCleanup();
     }
@@ -1416,7 +1515,7 @@ async function fsaAddExisting(){
     await storeHandle(id, handle);
     const file = await handle.getFile();
     const parsed = parseFile(await file.text());
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
     runAutoResets(false);
     runCompletedCleanup();
     saveLocalMeta();
@@ -1438,6 +1537,7 @@ async function fsaAddNew(){
     completedTtlHours = 0;
     hideDailySidebar = false;
     hideSubtaskBar = false;
+    dayWeekAnchor = {};
     saveLocalMeta();
     save();
     toast('New vault file created');
@@ -1498,7 +1598,7 @@ function memoryBootLoad(){
     activeVaultId = (meta.activeVaultId && meta.vaults.find(v=>v.id===meta.activeVaultId)) ? meta.activeVaultId : meta.vaults[0].id;
     const cached = localStorage.getItem(cacheKey(activeVaultId));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
     runAutoResets(false);
     runCompletedCleanup();
   } else {
@@ -1507,7 +1607,7 @@ function memoryBootLoad(){
     vaults = [{id, name:'Untitled'}];
     activeVaultId = id;
     const parsed = parseFile(legacy || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
     runAutoResets(false);
     runCompletedCleanup();
     if(legacy) localStorage.setItem(cacheKey(id), legacy);
@@ -1525,6 +1625,7 @@ function memoryAddNamed(){
     completedTtlHours = 0;
     hideDailySidebar = false;
     hideSubtaskBar = false;
+    dayWeekAnchor = {};
     saveLocalMeta();
     save();
     toast('New list created — use Import/Export to move it in and out of your synced folder');
@@ -1534,7 +1635,7 @@ function memorySwitch(id){
   activeVaultId = id;
   const cached = localStorage.getItem(cacheKey(id));
   const parsed = parseFile(cached || '');
-  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
   runAutoResets(false);
   runCompletedCleanup();
   saveLocalMeta();
@@ -1547,7 +1648,7 @@ function memoryClose(id){
     ensureAtLeastOneVault();
     const cached = localStorage.getItem(cacheKey(activeVaultId));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
     runAutoResets(false);
     runCompletedCleanup();
   }
@@ -1614,7 +1715,7 @@ document.getElementById('fileImportInput').onchange = async (e)=>{
   if(!f) return;
   const text = await f.text();
   const parsed = parseFile(text);
-  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
+  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
   runAutoResets(false);
   runCompletedCleanup();
   const v = activeVault();

@@ -151,6 +151,20 @@ ipcMain.handle('rename-vault', async (evt, id, name)=>{
   return true;
 });
 
+// Persists a new tab order (drag-and-drop reordering in the tab bar).
+// `orderedIds` is the full list of vault ids in their new order.
+ipcMain.handle('reorder-vaults', async (evt, orderedIds)=>{
+  const cfg = readConfig();
+  const byId = new Map(cfg.vaults.map(v => [v.id, v]));
+  const reordered = orderedIds.map(id => byId.get(id)).filter(Boolean);
+  // Keep any vault the renderer didn't mention (shouldn't normally happen,
+  // but avoids silently dropping a tab if the lists ever get out of sync).
+  for(const v of cfg.vaults){ if(!orderedIds.includes(v.id)) reordered.push(v); }
+  cfg.vaults = reordered;
+  writeConfig(cfg);
+  return true;
+});
+
 // Removes a file from the tracked tab list AND deletes it from disk.
 // (close-vault above only untracks it — this is the destructive variant,
 // used by the tab's right-click "Delete file" option.)
