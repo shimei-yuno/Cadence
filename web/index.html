@@ -63,10 +63,6 @@
     .daySidebar{width:100%;flex:none;position:static;padding:0 0 60px;}
   }
   .group-grid{display:flex;flex-direction:column;gap:10px;}
-  /* When the daily sidebar is hidden, the task list would otherwise sit
-     flush left in the leftover space — center it instead. */
-  .appLayout.no-sidebar{justify-content:center;}
-  .appLayout.no-sidebar .wrap{flex:0 1 640px;}
 
   /* Header */
   header.app{display:flex;flex-direction:column;gap:2px;margin-bottom:14px;}
@@ -75,22 +71,20 @@
     font-family:'Zilla Slab',serif;font-weight:700;font-size:28px;letter-spacing:0.5px;
     margin:0;color:var(--ink);
   }
-  .header-icon-btn{
+  .theme-btn{
     margin-left:auto;background:none;border:1px solid var(--rule);color:var(--ink-dim);
     font-size:14px;line-height:1;padding:7px 9px;border-radius:var(--radius);cursor:pointer;
   }
-  .header-icon-btn:hover{color:var(--ink);border-color:var(--dusty);}
+  .theme-btn:hover{color:var(--ink);border-color:var(--dusty);}
 
   /* Tabs (vault switcher) */
   .tabsbar{display:flex;align-items:flex-end;gap:4px;flex-wrap:wrap;margin-top:14px;}
   .tab{
     display:flex;align-items:center;justify-content:center;padding:9px 8px;border:1px solid var(--rule);
     border-radius:var(--radius);background:var(--bg-elevated);color:var(--ink-dim);font-size:12.5px;
-    cursor:pointer;width:1in;text-align:center;
+    cursor:pointer;width:0.75in;text-align:center;
   }
   .tab.active{background:var(--bg-card);color:var(--ink);border-color:var(--dusty);}
-  .tab.dragging{opacity:0.4;}
-  .tab.drag-over{border-color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber);}
   .tab .tabname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
   .tab.addtab{width:auto;color:var(--ink-faint);border-style:dashed;padding:9px 16px;}
   .tab.addtab:hover{color:var(--ink);border-color:var(--dusty);}
@@ -150,9 +144,6 @@
   }
   .badge.cycle{border-color:#5C4A28;color:var(--amber);}
   .badge.overdue{border-color:#5A3B30;color:var(--rust);}
-  .group-comment{
-    padding:0 12px 8px 40px;font-size:12.5px;color:var(--ink-dim);white-space:pre-wrap;line-height:1.45;
-  }
   .badge.today{border-color:#5C4A28;color:var(--amber);}
   .progress{font-size:11px;color:var(--ink-faint);white-space:nowrap;padding-top:2px;}
   .group-actions{display:flex;gap:4px;flex:none;}
@@ -212,13 +203,6 @@
     cursor:pointer;background:none;font-family:inherit;
   }
   .wd.on{background:var(--amber);border-color:var(--amber);color:#1E2320;font-weight:600;}
-  .day-btn-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
-  .day-btn{
-    border:1px solid var(--rule);color:var(--ink-dim);font-size:11px;padding:6px 10px;border-radius:2px;
-    cursor:pointer;background:none;font-family:inherit;
-  }
-  .day-btn:hover{border-color:var(--dusty);color:var(--ink);}
-  .day-btn.active{background:var(--amber);border-color:var(--amber);color:#1E2320;font-weight:600;}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
   .hint-small{font-size:11px;color:var(--ink-faint);line-height:1.5;margin:-6px 0 4px;}
   .btn{border:1px solid var(--rule);background:none;color:var(--ink-dim);font-family:inherit;font-size:12.5px;
@@ -237,27 +221,6 @@
   .sub-row input[type=text]:focus{outline:none;border-color:var(--dusty);}
   .sub-row .rm{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:11px;padding:2px 4px;}
   .sub-row .rm:hover{color:var(--rust);}
-  .sub-due-btn{
-    flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
-    background:var(--bg-card);border:1px solid var(--rule);color:var(--ink-faint);border-radius:2px;
-    cursor:pointer;font-size:13px;padding:0;line-height:1;
-  }
-  .sub-due-btn:hover{color:var(--ink);border-color:var(--dusty);}
-  .sub-due-btn.has-due{color:var(--amber);border-color:#5C4A28;}
-  .due-popover{padding:10px;}
-  .due-popover-inner{display:flex;flex-direction:column;gap:8px;}
-  .due-popover input[type=datetime-local]{
-    background:var(--bg-card);border:1px solid var(--rule);color:var(--ink);
-    font-family:inherit;font-size:12px;padding:6px 7px;border-radius:2px;
-  }
-  .due-popover input[type=datetime-local]:focus{outline:none;border-color:var(--dusty);}
-  .due-popover-actions{display:flex;justify-content:space-between;gap:8px;}
-  .due-popover-actions button{
-    background:none;border:1px solid var(--rule);color:var(--ink-dim);font-family:inherit;
-    font-size:11px;padding:5px 10px;border-radius:2px;cursor:pointer;
-  }
-  .due-popover-actions button:hover{color:var(--ink);border-color:var(--dusty);}
-  .due-popover-actions button.primary{background:var(--amber);border-color:var(--amber);color:#1E2320;font-weight:600;}
   .sub-empty{font-size:11.5px;color:var(--ink-faint);font-style:italic;margin-bottom:6px;}
   .sub-add-input{
     width:100%;background:none;border:none;border-bottom:1px dashed var(--rule);color:var(--ink-dim);
@@ -276,6 +239,11 @@
   ::selection{background:var(--amber);color:#1E2320;}
 
   /* Weekday sidebar — per-day tasklists, unrelated to the main task list, saved per file */
+  .sidebar-settings-btn{
+    display:block;margin:0 0 8px auto;background:none;border:1px solid var(--rule);color:var(--ink-faint);
+    font-size:12px;padding:4px 7px;border-radius:2px;cursor:pointer;
+  }
+  .sidebar-settings-btn:hover{color:var(--ink);border-color:var(--dusty);}
   .day-col{border:1px solid var(--rule-soft);border-radius:var(--radius);background:var(--bg-card);margin-bottom:8px;padding:8px 9px;}
   .day-col.is-today{border-color:#5C4A28;}
   .day-head{font-family:'Zilla Slab',serif;font-size:13px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;margin-bottom:6px;}
@@ -292,13 +260,13 @@
 </style>
 </head>
 <body>
-<div class="appLayout" id="appLayout">
+<div class="appLayout">
   <div class="wrap">
 
     <header class="app">
       <div class="brand">
         <h1>Cadence</h1>
-        <button class="header-icon-btn" id="btnSettings" title="Settings">⚙</button>
+        <button class="theme-btn" id="btnTheme" title="Theme"></button>
       </div>
       <div class="tabsbar" id="tabsbar"></div>
     </header>
@@ -344,8 +312,6 @@ let sidebarNotes = defaultNotes(); // {mon..sun} -> array of {id,text,done} task
 let dayResetTime = '00:00';  // HH:MM — when the sidebar's "today" flips to the next day; per-vault
 let completedTtlHours = 0;   // hours after completion before a task auto-deletes; 0 = never; per-vault
 let hideDailySidebar = false; // per-vault: hide the weekday tasklist sidebar for this tab
-let hideSubtaskBar = false;  // per-vault: hide the inline "add subtask" row on task cards
-let dayWeekAnchor = {};      // per-vault: {mon:'2026-08-24', ...} — which week's Monday each weekday's tasklist was last reset for
 let vaults = [];             // [{id, name, path?}] — path is set for native-tracked vaults
 let activeVaultId = null;
 let fsaHandles = new Map();  // FSA (browser) mode only: vault id -> FileSystemFileHandle, in-memory
@@ -398,26 +364,11 @@ function fmtDueBadge(g){
   if(g.time && g.time !== '00:00') s += ', ' + fmtTime(g.time);
   return s;
 }
-// ---- subtask deadlines use <input type="datetime-local"> ("YYYY-MM-DDTHH:MM"),
-// so they carry both a date and a time, unlike the main due-date field. The
-// string format sorts/compares correctly with plain < / <= (same trick ISO
-// dates use), so no need to parse into Date objects just to compare "now".
-function nowLocalStr(){
-  const d = new Date();
-  return isoOf(d) + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-}
-function fmtDateTime(dtLocal){
-  if(!dtLocal) return '';
-  const [datePart, timePart] = dtLocal.split('T');
-  let s = fmtDate(datePart);
-  if(timePart && timePart !== '00:00') s += ', ' + fmtTime(timePart);
-  return s;
-}
 function uid(){ return Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4); }
 
 // ---------- theme (light / dark / follow system) — a UI preference, not
-// vault data, so it lives in localStorage rather than the markdown file.
-// Picked from a dropdown inside Tab settings (see openTabSettings). ----------
+// vault data, so it lives in localStorage rather than the markdown file ----------
+const THEME_ICON = {dark:'🌙', light:'☀', system:'🖥'};
 let themeMode = localStorage.getItem('cadence_theme') || 'system';
 function resolvedTheme(){
   if(themeMode === 'system') return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
@@ -425,11 +376,24 @@ function resolvedTheme(){
 }
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', resolvedTheme());
+  const btn = document.getElementById('btnTheme');
+  if(btn) btn.textContent = THEME_ICON[themeMode];
 }
 function setThemeMode(mode){
   themeMode = mode;
   localStorage.setItem('cadence_theme', mode);
   applyTheme();
+}
+function openThemeMenu(anchor){
+  closeAnyMenu();
+  const menu = document.createElement('div');
+  menu.className = 'tabmenu';
+  menu.innerHTML = `<button data-m="light">☀ Light</button><button data-m="dark">🌙 Dark</button><button data-m="system">🖥 Follow system</button>`;
+  const r = anchor.getBoundingClientRect();
+  positionMenu(menu, r.right - 140 + window.scrollX, r.bottom + window.scrollY + 4);
+  menu.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ setThemeMode(b.dataset.m); menu.remove(); };
+  });
 }
 if(window.matchMedia){
   window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()=>{ if(themeMode==='system') applyTheme(); });
@@ -446,17 +410,14 @@ function serialize(){
   out += '<!-- sidebar-notes: ' + b64encode(JSON.stringify(sidebarNotes)) + ' -->\n';
   out += '<!-- day-reset-time: ' + (dayResetTime || '00:00') + ' -->\n';
   out += '<!-- completed-ttl: ' + (completedTtlHours || 0) + ' -->\n';
-  out += '<!-- hide-daily: ' + (hideDailySidebar ? 1 : 0) + ' -->\n';
-  out += '<!-- hide-subtask-bar: ' + (hideSubtaskBar ? 1 : 0) + ' -->\n';
-  out += '<!-- day-week-anchor: ' + b64encode(JSON.stringify(dayWeekAnchor)) + ' -->\n\n';
+  out += '<!-- hide-daily: ' + (hideDailySidebar ? 1 : 0) + ' -->\n\n';
   for(const g of tasks){
     out += '## ' + g.title + '\n';
     const subDue = {};
     for(const s of g.subtasks){ if(s.due) subDue[s.title] = s.due; }
     const meta = {
       id:g.id, repeat:g.repeat, days:g.days||[], due:g.due, time:g.time||'00:00',
-      history:g.history||[], archived: !!g.archived, completed: !!g.completed,
-      completedAt: g.completedAt || null, comment: g.comment || '', subDue
+      history:g.history||[], archived: !!g.archived, completedAt: g.completedAt || null, subDue
     };
     out += '<!-- meta: ' + JSON.stringify(meta) + ' -->\n';
     for(const s of g.subtasks){
@@ -487,16 +448,12 @@ function parseFile(text){
   let resetTime = '00:00';
   let ttl = 0;
   let hideDaily = false;
-  let hideSubBar = false;
-  let weekAnchor = null;
   let cur = null;
   for(const line of lines){
     const sb = line.match(/^<!--\s*sidebar-notes:\s*([A-Za-z0-9+/=]+)\s*-->$/);
     const rt = line.match(/^<!--\s*day-reset-time:\s*(\d{1,2}:\d{2})\s*-->$/);
     const ttlm = line.match(/^<!--\s*completed-ttl:\s*(\d+)\s*-->$/);
     const hdm = line.match(/^<!--\s*hide-daily:\s*([01])\s*-->$/);
-    const hsm = line.match(/^<!--\s*hide-subtask-bar:\s*([01])\s*-->$/);
-    const wam = line.match(/^<!--\s*day-week-anchor:\s*([A-Za-z0-9+/=]+)\s*-->$/);
     const h = line.match(/^##\s+(.*)$/);
     const m = line.match(/^<!--\s*meta:\s*(\{.*\})\s*-->$/);
     const c = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
@@ -508,12 +465,8 @@ function parseFile(text){
       ttl = Number(ttlm[1]) || 0;
     } else if(hdm){
       hideDaily = hdm[1] === '1';
-    } else if(hsm){
-      hideSubBar = hsm[1] === '1';
-    } else if(wam){
-      try{ weekAnchor = JSON.parse(b64decode(wam[1])); }catch(e){}
     } else if(h){
-      cur = {id:uid(), title:h[1].trim(), repeat:'none', days:[], due:null, time:'00:00', history:[], archived:false, completed:false, completedAt:null, comment:'', subtasks:[], _subDue:{}};
+      cur = {id:uid(), title:h[1].trim(), repeat:'none', days:[], due:null, time:'00:00', history:[], archived:false, completedAt:null, subtasks:[], _subDue:{}};
       groups.push(cur);
     } else if(m && cur){
       try{
@@ -525,9 +478,7 @@ function parseFile(text){
         cur.time = meta.time || '00:00';
         cur.history = meta.history || [];
         cur.archived = !!meta.archived;
-        cur.completed = !!meta.completed;
         cur.completedAt = meta.completedAt || null;
-        cur.comment = meta.comment || '';
         cur._subDue = meta.subDue || {};
       }catch(e){}
     } else if(c && cur){
@@ -537,7 +488,7 @@ function parseFile(text){
     }
   }
   for(const g of groups) delete g._subDue;
-  return {tasks: groups, sidebarNotes: migrateNotes(rawNotes), dayResetTime: resetTime, completedTtlHours: ttl, hideDailySidebar: hideDaily, hideSubtaskBar: hideSubBar, dayWeekAnchor: weekAnchor || {}};
+  return {tasks: groups, sidebarNotes: migrateNotes(rawNotes), dayResetTime: resetTime, completedTtlHours: ttl, hideDailySidebar: hideDaily};
 }
 
 // ---------- status / grouping ----------
@@ -555,18 +506,13 @@ function groupStatus(g){
   if(g.due === todayISO()) return 'today';
   return 'upcoming';
 }
-// Maps each task onto one of the 5 date-based sections (plus a trailing
-// Completed section for finished non-repeating tasks).
+// Maps the fine-grained per-item status onto the four main-list sections.
 function sectionBucket(g){
-  if(g.archived) return 'completed';
-  if(!g.due) return 'nodeadline';
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffDays = Math.round((parseISO(g.due) - todayStart) / 86400000);
-  if(dueDateTime(g) <= now || diffDays <= 0) return 'today';
-  if(diffDays <= 7) return 'thisweek';
-  if(diffDays <= 14) return 'nextweek';
-  return 'nextmonth';
+  const status = groupStatus(g);
+  if(status==='archived') return 'completed';
+  if(status==='overdue' || status==='today') return 'daily';
+  if(status==='anytime') return 'nodeadline';
+  return 'nextweek';
 }
 function progressOf(g){
   if(!g.subtasks.length) return null;
@@ -585,31 +531,21 @@ function repeatLabel(g){
 function markSubtaskDone(g, s, done){
   s.done = done;
   const allDone = g.subtasks.length>0 && g.subtasks.every(x=>x.done);
-  if(g.repeat==='none'){
-    if(allDone && g.subtasks.length>0){
-      g.archived = true;
-      g.completedAt = Date.now();
-      toast('Task completed');
-    } else if(!done && g.archived){
-      g.archived = false;
-      g.completedAt = null;
-    }
-  } else {
-    // Repeating tasks: finishing every subtask marks the main task
-    // completed too (mirrors the main checkbox), but — same as before —
-    // this doesn't advance the due date immediately; it just stays
-    // checked until the scheduled reset (runAutoResets) rolls the cycle
-    // forward on its own.
-    if(allDone && g.subtasks.length>0){
-      g.completed = true;
-    } else if(!done && g.completed){
-      g.completed = false;
-    }
+  // Repeating tasks: finishing every subtask just leaves them checked —
+  // the cycle only rolls forward once the scheduled reset time arrives
+  // (see runAutoResets), not immediately when the last box is ticked.
+  if(allDone && g.repeat==='none' && g.subtasks.length>0){
+    g.archived = true;
+    g.completedAt = Date.now();
+    toast('Task completed');
+  } else if(!done && g.archived){
+    g.archived = false;
+    g.completedAt = null;
   }
   save();
 }
 function completeCycle(g, opts={}){
-  const wasCompleted = g.completed || g.subtasks.length===0 || g.subtasks.every(s=>s.done);
+  const wasCompleted = g.subtasks.length===0 || g.subtasks.every(s=>s.done);
   const base = g.due || todayISO();
   let next;
   if(g.repeat==='daily') next = addDaysISO(base,1);
@@ -620,21 +556,15 @@ function completeCycle(g, opts={}){
   g.history.push(base);
   g.due = next;
   g.subtasks.forEach(s=>s.done=false);
-  g.completed = false;
   if(!opts.silent){
     toast((wasCompleted ? 'Cycle complete' : 'Reset for new cycle') + ' — next due ' + fmtDueBadge(g));
   }
 }
 function runAutoResets(announce){
-  checkWeeklySidebarReset();
   const now = new Date();
   let resetCount = 0;
-  let healed = false;
   for(const g of tasks){
-    if(g.repeat==='none') continue;
-    // A repeating task with no due date would never hit the reset check
-    // below and could sit "completed" forever — always give it one.
-    if(!g.due){ g.due = todayISO(); healed = true; }
+    if(g.repeat==='none' || !g.due) continue;
     let iterations = 0;
     while(dueDateTime(g) <= now && iterations < 366){
       completeCycle(g, {silent:true});
@@ -642,20 +572,19 @@ function runAutoResets(announce){
     }
     if(iterations>0) resetCount++;
   }
-  if(resetCount>0 || healed) save();
-  if(resetCount>0 && announce) toast(resetCount===1 ? 'A task reset for its new cycle' : resetCount + ' tasks reset for a new cycle');
+  if(resetCount>0){
+    save();
+    if(announce) toast(resetCount===1 ? 'A task reset for its new cycle' : resetCount + ' tasks reset for a new cycle');
+  }
 }
 function toggleGroupDone(g){
   if(g.repeat!=='none'){
-    // Mark done for this cycle without advancing the due date — same
-    // reasoning as markSubtaskDone above. The actual cycle rollover only
-    // happens once the scheduled reset time arrives.
-    g.completed = !g.completed;
-    g.subtasks.forEach(s=> s.done = g.completed);
+    completeCycle(g);
   } else {
     g.archived = !g.archived;
     g.completedAt = g.archived ? Date.now() : null;
-    g.subtasks.forEach(s=>s.done = g.archived);
+    if(g.archived) g.subtasks.forEach(s=>s.done=true);
+    else g.subtasks.forEach(s=>s.done=false);
   }
   save();
 }
@@ -691,19 +620,18 @@ function renderList(){
     root.innerHTML = '<div class="empty">No tasks yet. Add one, or open an existing vault file.</div>';
     return;
   }
-  const buckets = {nodeadline:[], today:[], thisweek:[], nextweek:[], nextmonth:[], completed:[]};
+  const buckets = {daily:[], nextweek:[], nodeadline:[], completed:[]};
   for(const g of tasks) buckets[sectionBucket(g)].push(g);
 
   const sections = [
-    ['nodeadline','No Deadline'], ['today','Today'], ['thisweek','This Week'],
-    ['nextweek','Next Week'], ['nextmonth','Next Month'], ['completed','Completed']
+    ['daily','Daily'], ['nextweek','Next Week'], ['nodeadline','No Deadline'], ['completed','Completed']
   ];
   for(const [key,label] of sections){
     const items = buckets[key];
     if(!items.length) continue;
     const sec = document.createElement('div');
     sec.className = 'section';
-    sec.innerHTML = `<div class="section-title ${key==='today'?'today':''}">${label} <span class="count">(${items.length})</span></div>`;
+    sec.innerHTML = `<div class="section-title ${key==='daily'?'today':''}">${label} <span class="count">(${items.length})</span></div>`;
     const grid = document.createElement('div');
     grid.className = 'group-grid';
     for(const g of items) grid.appendChild(renderGroup(g));
@@ -720,22 +648,21 @@ function renderGroup(g){
   el.className = 'group' + (groupStatus(g)==='overdue' ? ' overdue' : '');
   const prog = progressOf(g);
   const status = groupStatus(g);
-  const isDone = g.repeat==='none' ? !!g.archived : !!g.completed;
 
   const head = document.createElement('div');
   head.className = 'group-head';
 
   const cb = document.createElement('div');
-  cb.className = 'checkbox' + (isDone ? ' checked':'');
-  cb.textContent = isDone ? '✓' : '';
-  cb.title = g.repeat!=='none' ? 'Mark done for this cycle' : 'Mark done';
+  cb.className = 'checkbox' + (g.archived ? ' checked':'');
+  cb.textContent = g.archived ? '✓' : '';
+  cb.title = g.repeat!=='none' ? 'Complete this cycle' : 'Mark done';
   cb.onclick = ()=> toggleGroupDone(g);
   head.appendChild(cb);
 
   const titleWrap = document.createElement('div');
   titleWrap.className = 'group-title-row';
   const titleEl = document.createElement('div');
-  titleEl.className = 'group-title' + (isDone ? ' struck':'');
+  titleEl.className = 'group-title' + (g.archived ? ' struck':'');
   titleEl.textContent = g.title;
   titleEl.onclick = ()=> openEdit(g.id);
   titleWrap.appendChild(titleEl);
@@ -769,18 +696,9 @@ function renderGroup(g){
 
   el.appendChild(head);
 
-  // Comment: hidden entirely when empty, shown below the title/badges and
-  // above the subtasks when there's content.
-  if(g.comment && g.comment.trim()){
-    const cm = document.createElement('div');
-    cm.className = 'group-comment';
-    cm.textContent = g.comment;
-    el.appendChild(cm);
-  }
-
   const subs = document.createElement('div');
   subs.className = 'subtasks';
-  const nowStr = nowLocalStr();
+  const todayIso = todayISO();
   for(const s of g.subtasks){
     const row = document.createElement('div');
     row.className = 'subtask';
@@ -797,8 +715,8 @@ function renderGroup(g){
     // Deadlines are normally hidden — only shown when this subtask actually has one set.
     if(s.due){
       const db = document.createElement('span');
-      db.className = 'due' + (!s.done && s.due < nowStr ? ' overdue' : '');
-      db.textContent = fmtDateTime(s.due);
+      db.className = 'due' + (!s.done && s.due < todayIso ? ' overdue' : '');
+      db.textContent = fmtDate(s.due);
       row.appendChild(db);
     }
     const rm = document.createElement('button');
@@ -809,73 +727,36 @@ function renderGroup(g){
   }
   el.appendChild(subs);
 
-  if(!hideSubtaskBar){
-    const addRow = document.createElement('div');
-    addRow.className = 'subtask-add-row';
-    addRow.innerHTML = `<input type="text" class="subtask-add-input" placeholder="+ add subtask, press Enter">`;
-    const addInput = addRow.querySelector('input');
-    addInput.onkeydown = (e)=>{
-      if(e.key==='Enter'){
-        e.preventDefault();
-        addSubtaskInline(g, addInput.value);
-        addInput.value = '';
-      }
-    };
-    el.appendChild(addRow);
-  }
+  const addRow = document.createElement('div');
+  addRow.className = 'subtask-add-row';
+  addRow.innerHTML = `<input type="text" class="subtask-add-input" placeholder="+ add subtask, press Enter">`;
+  const addInput = addRow.querySelector('input');
+  addInput.onkeydown = (e)=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      addSubtaskInline(g, addInput.value);
+      addInput.value = '';
+    }
+  };
+  el.appendChild(addRow);
 
   return el;
 }
 
-// The "logical now" for the sidebar, honoring this vault's day-reset time.
-// If the clock hasn't hit that time yet, we're still logically in
-// yesterday (e.g. reset time 6:00 AM, it's 2:00 AM -> still "yesterday").
-function logicalNow(){
+// Which weekday counts as "today" for the sidebar, honoring this vault's
+// day-reset time. If the clock hasn't hit that time yet, we're still in
+// yesterday's logical day (e.g. reset time 6:00 AM, it's 2:00 AM -> still
+// "yesterday" for the sidebar).
+function logicalTodayKey(){
   const now = new Date();
   const [hh, mm] = (dayResetTime || '00:00').split(':').map(Number);
   const resetMoment = new Date(now);
   resetMoment.setHours(hh, mm, 0, 0);
+  let dow = now.getDay();
   if(now < resetMoment){
-    const y = new Date(now);
-    y.setDate(y.getDate()-1);
-    return y;
+    dow = (dow + 6) % 7; // yesterday
   }
-  return now;
-}
-function logicalTodayKey(){
-  return DOW_TO_KEY[logicalNow().getDay()];
-}
-// ISO date of the Monday that starts the current logical week — used to
-// detect "this weekday has come back around" for the sidebar's weekly reset.
-function currentWeekAnchorISO(){
-  const d = logicalNow();
-  const dow = d.getDay(); // 0=Sun..6=Sat
-  const diffToMonday = (dow===0) ? 6 : dow-1;
-  const monday = new Date(d);
-  monday.setDate(monday.getDate() - diffToMonday);
-  return isoOf(monday);
-}
-// A day's tasklist should start fresh each time that weekday comes back
-// around — otherwise a task checked off last Monday would still show
-// checked next Monday. Tracks, per weekday, which week it was last reset
-// for for; resets that day's items the first time it's touched in a new week.
-function checkWeeklySidebarReset(){
-  const anchor = currentWeekAnchorISO();
-  // First time this vault has seen this feature at all (a fresh vault, or
-  // one saved before it existed) — stamp every day at the current week
-  // without wiping anything the person already has checked off.
-  if(Object.keys(dayWeekAnchor).length === 0){
-    for(const k of DAY_KEYS) dayWeekAnchor[k] = anchor;
-    save();
-    return;
-  }
-  const key = logicalTodayKey();
-  if(dayWeekAnchor[key] === anchor) return;
-  dayWeekAnchor[key] = anchor;
-  if((sidebarNotes[key]||[]).some(it=>it.done)){
-    sidebarNotes[key].forEach(it=> it.done=false);
-  }
-  save();
+  return DOW_TO_KEY[dow];
 }
 
 // ---- weekday sidebar: shows just today's tasklist, saved with the file.
@@ -886,13 +767,17 @@ function checkWeeklySidebarReset(){
 // typed into a task — same as before, just now scoped to today's box. ----
 function renderSidebar(){
   const root = document.getElementById('daySidebar');
-  const layout = document.getElementById('appLayout');
   if(!root) return;
   root.style.display = hideDailySidebar ? 'none' : '';
-  if(layout) layout.classList.toggle('no-sidebar', !!hideDailySidebar);
   if(hideDailySidebar) return;
   const todayKey = logicalTodayKey();
   root.innerHTML = '';
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'sidebar-settings-btn';
+  settingsBtn.textContent = '⚙';
+  settingsBtn.title = 'Tab settings';
+  settingsBtn.onclick = openTabSettings;
+  root.appendChild(settingsBtn);
   {
     const key = todayKey;
     const col = document.createElement('div');
@@ -905,7 +790,7 @@ function renderSidebar(){
     list.className = 'day-tasklist';
     const items = sidebarNotes[key] || [];
     if(!items.length){
-      list.innerHTML = '<div class="day-empty">No tasks — add some in ⚙ Settings.</div>';
+      list.innerHTML = '<div class="day-empty">No tasks — click ✎ to add some.</div>';
     } else {
       for(const it of items){
         const row = document.createElement('div');
@@ -943,15 +828,7 @@ function openTabSettings(){
   }
   overlay.innerHTML = `
     <div class="modal" style="max-width:380px;">
-      <h2>Settings</h2>
-      <div class="field">
-        <label>Theme</label>
-        <select id="sTheme">
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="system">Follow system</option>
-        </select>
-      </div>
+      <h2>Tab settings</h2>
       <div class="field">
         <label>Day resets at</label>
         <input type="time" id="sReset">
@@ -974,15 +851,10 @@ function openTabSettings(){
         </label>
       </div>
       <div class="field">
-        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;cursor:pointer;">
-          <input type="checkbox" id="sHideSubtaskBar"> Hide the "add subtask" bar on task cards for this tab
-        </label>
-      </div>
-      <div class="field">
         <label>Edit tasks for</label>
-        <div class="day-btn-row" id="sDayBtns">
-          ${DAY_KEYS.map(k=>`<button type="button" class="day-btn" data-day="${k}">${DAY_LABELS[k]}</button>`).join('')}
-        </div>
+        <select id="sDaySelect">
+          ${DAY_KEYS.map(k=>`<option value="${k}">${DAY_LABELS[k]}</option>`).join('')}
+        </select>
       </div>
       <div class="field">
         <label>One task per line</label>
@@ -995,27 +867,23 @@ function openTabSettings(){
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  overlay.querySelector('#sTheme').value = themeMode;
-  overlay.querySelector('#sTheme').onchange = (e)=> setThemeMode(e.target.value);
   overlay.querySelector('#sReset').value = dayResetTime || '00:00';
   overlay.querySelector('#sTtl').value = String(completedTtlHours || 0);
   overlay.querySelector('#sHideDaily').checked = !!hideDailySidebar;
-  overlay.querySelector('#sHideSubtaskBar').checked = !!hideSubtaskBar;
 
-  const dayBtnRow = overlay.querySelector('#sDayBtns');
-  const dayBtns = Array.from(dayBtnRow.querySelectorAll('.day-btn'));
+  const daySelect = overlay.querySelector('#sDaySelect');
   const dayText = overlay.querySelector('#sDayText');
   let currentDay = logicalTodayKey();
-  function selectDay(day, opts={}){
-    if(!opts.initial) dayBuffer[currentDay] = dayText.value;
-    currentDay = day;
+  daySelect.value = currentDay;
+  dayText.value = dayBuffer[currentDay];
+  daySelect.onchange = ()=>{
+    dayBuffer[currentDay] = dayText.value;
+    currentDay = daySelect.value;
     dayText.value = dayBuffer[currentDay];
-    dayBtns.forEach(b=> b.classList.toggle('active', b.dataset.day===currentDay));
-  }
-  dayBtns.forEach(b=> b.onclick = ()=> selectDay(b.dataset.day));
-  selectDay(currentDay, {initial:true});
+  };
 
   overlay.querySelector('#sCancel').onclick = ()=> overlay.remove();
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#sSave').onclick = ()=>{
     dayBuffer[currentDay] = dayText.value;
     for(const k of DAY_KEYS){
@@ -1028,11 +896,10 @@ function openTabSettings(){
     dayResetTime = overlay.querySelector('#sReset').value || '00:00';
     completedTtlHours = Number(overlay.querySelector('#sTtl').value) || 0;
     hideDailySidebar = overlay.querySelector('#sHideDaily').checked;
-    hideSubtaskBar = overlay.querySelector('#sHideSubtaskBar').checked;
     runCompletedCleanup();
     save();
     overlay.remove();
-    toast('Settings updated');
+    toast('Tab settings updated');
   };
 }
 
@@ -1060,7 +927,6 @@ function displayTabName(name){
 }
 
 // ---- tabs bar (vault switcher) ----
-let dragTabId = null;
 function renderTabsBar(){
   const bar = document.getElementById('tabsbar');
   if(!bar) return;
@@ -1069,7 +935,6 @@ function renderTabsBar(){
     const tab = document.createElement('div');
     tab.className = 'tab' + (v.id===activeVaultId ? ' active':'');
     tab.title = v.path || v.name || '';
-    tab.draggable = true;
     const nameSpan = document.createElement('span');
     nameSpan.className = 'tabname';
     nameSpan.textContent = displayTabName(v.name);
@@ -1077,28 +942,6 @@ function renderTabsBar(){
     tab.onclick = ()=> switchTab(v.id);
     tab.ondblclick = (e)=>{ e.stopPropagation(); renameTab(v.id); };
     tab.oncontextmenu = (e)=> openTabContextMenu(e, v);
-    tab.ondragstart = (e)=>{
-      dragTabId = v.id;
-      e.dataTransfer.effectAllowed = 'move';
-      tab.classList.add('dragging');
-    };
-    tab.ondragend = ()=>{
-      dragTabId = null;
-      bar.querySelectorAll('.tab').forEach(t=>t.classList.remove('dragging','drag-over'));
-    };
-    tab.ondragover = (e)=>{
-      if(!dragTabId || dragTabId===v.id) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      tab.classList.add('drag-over');
-    };
-    tab.ondragleave = ()=> tab.classList.remove('drag-over');
-    tab.ondrop = (e)=>{
-      e.preventDefault();
-      tab.classList.remove('drag-over');
-      if(!dragTabId || dragTabId===v.id) return;
-      reorderVaultTab(dragTabId, v.id);
-    };
     bar.appendChild(tab);
   }
   const addTab = document.createElement('div');
@@ -1108,83 +951,32 @@ function renderTabsBar(){
   addTab.onclick = (e)=> openAddTabMenu(e, addTab);
   bar.appendChild(addTab);
 }
-// Drag-and-drop tab reordering: moves the dragged tab to sit where the
-// drop-target tab was, persists the new order, then re-renders.
-function reorderVaultTab(draggedId, targetId){
-  const fromIdx = vaults.findIndex(v=>v.id===draggedId);
-  const toIdx = vaults.findIndex(v=>v.id===targetId);
-  if(fromIdx===-1 || toIdx===-1) return;
-  const [moved] = vaults.splice(fromIdx,1);
-  vaults.splice(toIdx,0,moved);
-  if(hasNative && typeof window.cadenceBridge.reorderVaults === 'function'){
-    window.cadenceBridge.reorderVaults(vaults.map(v=>v.id));
-  } else if(!hasNative){
-    saveLocalMeta();
-  }
-  renderTabsBar();
-}
 function renameTab(id){
   const v = vaults.find(x=>x.id===id);
   if(!v) return;
-  openTextPrompt('Rename this tab', displayTabName(v.name), (name)=>{
-    v.name = name;
-    if(hasNative) window.cadenceBridge.renameVault(id, v.name);
-    else saveLocalMeta();
-    renderTabsBar();
-  });
-}
-// Small reusable single-field modal. Electron does not support
-// window.prompt() (it silently does nothing), so anywhere the app needs a
-// one-line text input from the user goes through this instead.
-function openTextPrompt(title, defaultValue, onSave){
-  const overlay = document.createElement('div');
-  overlay.className = 'overlay';
-  overlay.innerHTML = `
-    <div class="modal" style="max-width:340px;">
-      <h2>${title}</h2>
-      <div class="field"><input type="text" id="tpInput"></div>
-      <div class="modal-actions">
-        <button class="btn" id="tpCancel">Cancel</button>
-        <button class="btn primary" id="tpSave">Save</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  const inp = overlay.querySelector('#tpInput');
-  inp.value = defaultValue || '';
-  inp.focus();
-  inp.select();
-  overlay.querySelector('#tpCancel').onclick = ()=> overlay.remove();
-  const commit = ()=>{
-    const val = inp.value.trim();
-    overlay.remove();
-    if(val) onSave(val);
-  };
-  overlay.querySelector('#tpSave').onclick = commit;
-  inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } };
+  const name = prompt('Rename this tab', displayTabName(v.name));
+  if(!name) return;
+  v.name = name.trim() || v.name;
+  if(hasNative) window.cadenceBridge.renameVault(id, v.name);
+  else saveLocalMeta();
+  renderTabsBar();
 }
 function closeAnyMenu(){ document.querySelectorAll('.tabmenu').forEach(m=>m.remove()); }
-// A single persistent pair of listeners (registered once, below) handles
-// closing any open .tabmenu on an outside click — rather than attaching a
-// fresh listener pair every time a menu opens, which could linger if a menu
-// was dismissed by clicking one of its own buttons instead of clicking away.
-let menuArmed = false;
 function positionMenu(menu, x, y){
-  menuArmed = false;
   document.body.appendChild(menu);
   const vw = window.innerWidth, vh = window.innerHeight;
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(x, vw - r.width - 8) + 'px';
   menu.style.top = Math.min(y, vh - r.height - 8) + 'px';
-  setTimeout(()=>{ menuArmed = true; }, 0);
+  setTimeout(()=>{
+    document.addEventListener('click', function h(ev){
+      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click',h); }
+    });
+    document.addEventListener('contextmenu', function h2(ev){
+      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('contextmenu',h2); }
+    });
+  },0);
 }
-document.addEventListener('click', (ev)=>{
-  if(!menuArmed) return;
-  document.querySelectorAll('.tabmenu').forEach(m=>{ if(!m.contains(ev.target)) m.remove(); });
-});
-document.addEventListener('contextmenu', (ev)=>{
-  if(!menuArmed) return;
-  document.querySelectorAll('.tabmenu').forEach(m=>{ if(!m.contains(ev.target)) m.remove(); });
-});
 function openAddTabMenu(e, anchor){
   closeAnyMenu();
   if(!hasNative && !hasFSA){ memoryAddNamed(); return; }
@@ -1224,7 +1016,7 @@ function applyLoadedContent(text){
   sidebarNotes = parsed.sidebarNotes;
   dayResetTime = parsed.dayResetTime || '00:00';
   completedTtlHours = parsed.completedTtlHours || 0;
-  hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+  hideDailySidebar = !!parsed.hideDailySidebar;
   runAutoResets(false);
   runCompletedCleanup();
   render();
@@ -1239,8 +1031,6 @@ function ensureAtLeastOneVault(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
-    hideSubtaskBar = false;
-    dayWeekAnchor = {};
   }
   if(!activeVaultId || !vaults.find(v=>v.id===activeVaultId)){
     activeVaultId = vaults[0].id;
@@ -1322,8 +1112,6 @@ async function connectNewToCurrent(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
-    hideSubtaskBar = false;
-    dayWeekAnchor = {};
     save();
     toast('New vault file created');
   } else if(hasFSA){
@@ -1341,8 +1129,6 @@ async function connectNewToCurrent(){
       dayResetTime = '00:00';
       completedTtlHours = 0;
       hideDailySidebar = false;
-      hideSubtaskBar = false;
-      dayWeekAnchor = {};
       saveLocalMeta();
       save();
       toast('New vault file created');
@@ -1361,8 +1147,6 @@ async function nativeBootLoad(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
-    hideSubtaskBar = false;
-    dayWeekAnchor = {};
     return;
   }
   if(res.error === 'missing'){
@@ -1372,15 +1156,13 @@ async function nativeBootLoad(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
-    hideSubtaskBar = false;
-    dayWeekAnchor = {};
   } else {
     const parsed = parseFile(res.content || '');
     tasks = parsed.tasks;
     sidebarNotes = parsed.sidebarNotes;
     dayResetTime = parsed.dayResetTime || '00:00';
     completedTtlHours = parsed.completedTtlHours || 0;
-    hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+    hideDailySidebar = !!parsed.hideDailySidebar;
     runAutoResets(false);
     runCompletedCleanup();
   }
@@ -1404,8 +1186,6 @@ async function nativeAddNew(){
   dayResetTime = '00:00';
   completedTtlHours = 0;
   hideDailySidebar = false;
-  hideSubtaskBar = false;
-  dayWeekAnchor = {};
   save();
   toast('New vault file created');
 }
@@ -1420,8 +1200,6 @@ async function nativeSwitch(id){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
-    hideSubtaskBar = false;
-    dayWeekAnchor = {};
     render();
     return;
   }
@@ -1482,7 +1260,7 @@ async function fsaLoadActive(){
   if(!handle){
     const cached = localStorage.getItem(cacheKey(v.id));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
     runAutoResets(false);
     runCompletedCleanup();
     return;
@@ -1493,13 +1271,13 @@ async function fsaLoadActive(){
       fsaHandles.set(v.id, handle);
       const file = await handle.getFile();
       const parsed = parseFile(await file.text());
-      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
       runAutoResets(false);
       runCompletedCleanup();
     } else {
       const cached = localStorage.getItem(cacheKey(v.id));
       const parsed = parseFile(cached || '');
-      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
       runAutoResets(false);
       runCompletedCleanup();
     }
@@ -1515,7 +1293,7 @@ async function fsaAddExisting(){
     await storeHandle(id, handle);
     const file = await handle.getFile();
     const parsed = parseFile(await file.text());
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
     runAutoResets(false);
     runCompletedCleanup();
     saveLocalMeta();
@@ -1536,8 +1314,6 @@ async function fsaAddNew(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
-    hideSubtaskBar = false;
-    dayWeekAnchor = {};
     saveLocalMeta();
     save();
     toast('New vault file created');
@@ -1598,7 +1374,7 @@ function memoryBootLoad(){
     activeVaultId = (meta.activeVaultId && meta.vaults.find(v=>v.id===meta.activeVaultId)) ? meta.activeVaultId : meta.vaults[0].id;
     const cached = localStorage.getItem(cacheKey(activeVaultId));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
     runAutoResets(false);
     runCompletedCleanup();
   } else {
@@ -1607,7 +1383,7 @@ function memoryBootLoad(){
     vaults = [{id, name:'Untitled'}];
     activeVaultId = id;
     const parsed = parseFile(legacy || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
     runAutoResets(false);
     runCompletedCleanup();
     if(legacy) localStorage.setItem(cacheKey(id), legacy);
@@ -1615,27 +1391,25 @@ function memoryBootLoad(){
   }
 }
 function memoryAddNamed(){
-  openTextPrompt('Name for this list (e.g. "Wuthering Waves", "Genshin")', 'New list', (name)=>{
-    const id = uid();
-    vaults.push({id, name: name || 'Untitled'});
-    activeVaultId = id;
-    tasks = [];
-    sidebarNotes = defaultNotes();
-    dayResetTime = '00:00';
-    completedTtlHours = 0;
-    hideDailySidebar = false;
-    hideSubtaskBar = false;
-    dayWeekAnchor = {};
-    saveLocalMeta();
-    save();
-    toast('New list created — use Import/Export to move it in and out of your synced folder');
-  });
+  const name = prompt('Name for this list (e.g. "Wuthering Waves", "Genshin")', 'New list');
+  if(!name) return;
+  const id = uid();
+  vaults.push({id, name: name.trim() || 'Untitled'});
+  activeVaultId = id;
+  tasks = [];
+  sidebarNotes = defaultNotes();
+  dayResetTime = '00:00';
+  completedTtlHours = 0;
+  hideDailySidebar = false;
+  saveLocalMeta();
+  save();
+  toast('New list created — use Import/Export to move it in and out of your synced folder');
 }
 function memorySwitch(id){
   activeVaultId = id;
   const cached = localStorage.getItem(cacheKey(id));
   const parsed = parseFile(cached || '');
-  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
   runAutoResets(false);
   runCompletedCleanup();
   saveLocalMeta();
@@ -1648,7 +1422,7 @@ function memoryClose(id){
     ensureAtLeastOneVault();
     const cached = localStorage.getItem(cacheKey(activeVaultId));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
     runAutoResets(false);
     runCompletedCleanup();
   }
@@ -1685,16 +1459,9 @@ function persistVault(v, text){
     if(v) localStorage.setItem(cacheKey(v.id), text);
   })();
 }
-let renderScheduled = false;
-function scheduleRender(){
-  if(renderScheduled) return;
-  renderScheduled = true;
-  requestAnimationFrame(()=>{ renderScheduled = false; render(); });
-}
-// Full save: re-renders the task list/sidebar/tabs (coalesced to once per
-// animation frame — see scheduleRender above), then writes to disk.
+// Full save: re-renders the task list/sidebar/tabs, then writes to disk.
 function save(){
-  scheduleRender();
+  render();
   const v = activeVault();
   const text = serialize();
   if(saveTimer) clearTimeout(saveTimer);
@@ -1715,7 +1482,7 @@ document.getElementById('fileImportInput').onchange = async (e)=>{
   if(!f) return;
   const text = await f.text();
   const parsed = parseFile(text);
-  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar; dayWeekAnchor = parsed.dayWeekAnchor || {};
+  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
   runAutoResets(false);
   runCompletedCleanup();
   const v = activeVault();
@@ -1777,13 +1544,14 @@ function openQuickAdd(){
   document.body.appendChild(overlay);
   const ta = overlay.querySelector('#qaText');
   overlay.querySelector('#qaCancel').onclick = ()=> overlay.remove();
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#qaSave').onclick = ()=>{
     const lines = ta.value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     if(!lines.length){ overlay.remove(); return; }
     for(const title of lines){
       tasks.push({
-        id: uid(), title, repeat:'none', days:[], due:null, time:'00:00', comment:'',
-        history: [], archived:false, completed:false, completedAt:null, subtasks:[]
+        id: uid(), title, repeat:'none', days:[], due:null, time:'00:00',
+        history: [], archived:false, completedAt:null, subtasks:[]
       });
     }
     save();
@@ -1793,37 +1561,12 @@ function openQuickAdd(){
 }
 
 // ---------- add / edit modal ----------
-// Small floating date+time picker for a subtask deadline — a fixed-size
-// square button opens this instead of an inline date input, since an
-// always-visible date input was wide enough to get clipped by the sub-row.
-// Reuses the .tabmenu class so it gets the same outside-click-closes
-// behavior as the other dropdown menus for free.
-function openSubDuePopover(anchor, currentValue, onChange){
-  closeAnyMenu();
-  const pop = document.createElement('div');
-  pop.className = 'tabmenu due-popover';
-  pop.innerHTML = `
-    <div class="due-popover-inner">
-      <input type="datetime-local" id="popDue">
-      <div class="due-popover-actions">
-        <button type="button" id="popClear">Clear</button>
-        <button type="button" class="primary" id="popDone">Done</button>
-      </div>
-    </div>`;
-  const r = anchor.getBoundingClientRect();
-  positionMenu(pop, r.left + window.scrollX, r.bottom + window.scrollY + 4);
-  const inp = pop.querySelector('#popDue');
-  inp.value = currentValue || '';
-  pop.querySelector('#popClear').onclick = ()=>{ pop.remove(); onChange(null); };
-  pop.querySelector('#popDone').onclick = ()=>{ pop.remove(); onChange(inp.value || null); };
-}
-
-function openAdd(){ editingId = null; openModal({title:'', repeat:'none', days:[], due:'', time:'00:00', subtasks:[], comment:''}); }
+function openAdd(){ editingId = null; openModal({title:'', repeat:'none', days:[], due:'', time:'00:00', subtasks:[]}); }
 function openEdit(id){
   const g = tasks.find(x=>x.id===id);
   if(!g) return;
   editingId = id;
-  openModal({title:g.title, repeat:g.repeat, days:g.days||[], due:g.due||'', time:g.time||'00:00', subtasks:g.subtasks.map(s=>({...s})), comment:g.comment||''});
+  openModal({title:g.title, repeat:g.repeat, days:g.days||[], due:g.due||'', time:g.time||'00:00', subtasks:g.subtasks.map(s=>({...s}))});
 }
 function openModal(data){
   const overlay = document.createElement('div');
@@ -1832,7 +1575,6 @@ function openModal(data){
     <div class="modal">
       <h2>${editingId? 'Edit task' : 'New task'}</h2>
       <div class="field"><label>Title</label><input type="text" id="mTitle" placeholder="e.g. Weekly groceries"></div>
-      <div class="field"><label>Comment</label><textarea id="mComment" rows="2" placeholder="Optional notes..." style="width:100%;background:var(--bg-card);border:1px solid var(--rule);color:var(--ink);font-family:inherit;font-size:13px;padding:8px 9px;border-radius:2px;resize:vertical;"></textarea></div>
       <div class="field"><label>Subtasks</label>
         <div class="sub-editor" id="mSubEditor"></div>
         <input type="text" id="mSubAdd" class="sub-add-input" placeholder="+ add subtask, press Enter">
@@ -1860,7 +1602,6 @@ function openModal(data){
     </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#mTitle').value = data.title;
-  overlay.querySelector('#mComment').value = data.comment || '';
   overlay.querySelector('#mRepeat').value = data.repeat;
   overlay.querySelector('#mDue').value = data.due || '';
   overlay.querySelector('#mTime').value = data.time || '00:00';
@@ -1907,12 +1648,14 @@ function openModal(data){
       row.appendChild(inp);
       const dueBtn = document.createElement('button');
       dueBtn.type = 'button';
-      dueBtn.className = 'sub-due-btn' + (s.due ? ' has-due' : '');
-      dueBtn.textContent = '📅';
-      dueBtn.title = s.due ? ('Deadline: ' + fmtDateTime(s.due)) : 'Set deadline';
-      dueBtn.onclick = (e)=>{
-        e.stopPropagation();
-        openSubDuePopover(dueBtn, s.due, (val)=>{ s.due = val; renderSubEditor(); });
+      dueBtn.className = 'rm';
+      dueBtn.textContent = s.due ? '📅 ' + fmtDate(s.due) : '📅';
+      dueBtn.title = s.due ? 'Change deadline' : 'Set deadline';
+      dueBtn.onclick = ()=>{
+        const val = prompt('Deadline (YYYY-MM-DD), leave blank to clear', s.due || '');
+        if(val===null) return;
+        s.due = val.trim() || null;
+        renderSubEditor();
       };
       row.appendChild(dueBtn);
       const rm = document.createElement('button');
@@ -1936,6 +1679,7 @@ function openModal(data){
   };
 
   overlay.querySelector('#mCancel').onclick = ()=> overlay.remove();
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   if(editingId){
     // Completed tasks skip the "are you sure" — same reasoning as the
     // main-page delete button.
@@ -1947,29 +1691,18 @@ function openModal(data){
   overlay.querySelector('#mSave').onclick = ()=>{
     const title = overlay.querySelector('#mTitle').value.trim();
     if(!title){ toast('Title required'); return; }
-    // Commit any text still sitting in the "+ add subtask" box that the
-    // user never pressed Enter on — otherwise it's silently lost.
-    if(subAddInput.value.trim()){
-      modalSubs.push({id:uid(), title:subAddInput.value.trim(), done:false, due:null});
-      subAddInput.value = '';
-    }
-    const comment = overlay.querySelector('#mComment').value.trim();
     const repeat = overlay.querySelector('#mRepeat').value;
-    let due = overlay.querySelector('#mDue').value || null;
+    const due = overlay.querySelector('#mDue').value || null;
     const time = overlay.querySelector('#mTime').value || '00:00';
-    // A repeating task always needs a due date to reset against — without
-    // one it would never trip the auto-reset check and would just sit
-    // completed forever.
-    if(repeat!=='none' && !due) due = todayISO();
     const finalSubs = modalSubs.filter(s=>s.title.trim()).map(s=>({id:s.id||uid(), title:s.title.trim(), done:!!s.done, due:s.due||null}));
     if(editingId){
       const g = tasks.find(x=>x.id===editingId);
       g.title = title; g.repeat = repeat; g.days = [...selDays]; g.due = due; g.time = time;
-      g.comment = comment; g.subtasks = finalSubs;
+      g.subtasks = finalSubs;
     } else {
       tasks.push({
-        id: uid(), title, repeat, days:[...selDays], due, time, comment,
-        history: [], archived:false, completed:false, completedAt: null,
+        id: uid(), title, repeat, days:[...selDays], due, time,
+        history: [], archived:false, completedAt: null,
         subtasks: finalSubs
       });
     }
@@ -1980,7 +1713,7 @@ function openModal(data){
 
 document.getElementById('btnAdd').onclick = openAdd;
 document.getElementById('btnQuickAdd').onclick = openQuickAdd;
-document.getElementById('btnSettings').onclick = openTabSettings;
+document.getElementById('btnTheme').onclick = (e)=> openThemeMenu(e.currentTarget);
 applyTheme();
 
 // ---------- boot ----------
