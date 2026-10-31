@@ -63,6 +63,10 @@
     .daySidebar{width:100%;flex:none;position:static;padding:0 0 60px;}
   }
   .group-grid{display:flex;flex-direction:column;gap:10px;}
+  /* When the daily sidebar is hidden, the task list would otherwise sit
+     flush left in the leftover space — center it instead. */
+  .appLayout.no-sidebar{justify-content:center;}
+  .appLayout.no-sidebar .wrap{flex:0 1 640px;}
 
   /* Header */
   header.app{display:flex;flex-direction:column;gap:2px;margin-bottom:14px;}
@@ -71,11 +75,11 @@
     font-family:'Zilla Slab',serif;font-weight:700;font-size:28px;letter-spacing:0.5px;
     margin:0;color:var(--ink);
   }
-  .theme-btn{
+  .header-icon-btn{
     margin-left:auto;background:none;border:1px solid var(--rule);color:var(--ink-dim);
     font-size:14px;line-height:1;padding:7px 9px;border-radius:var(--radius);cursor:pointer;
   }
-  .theme-btn:hover{color:var(--ink);border-color:var(--dusty);}
+  .header-icon-btn:hover{color:var(--ink);border-color:var(--dusty);}
 
   /* Tabs (vault switcher) */
   .tabsbar{display:flex;align-items:flex-end;gap:4px;flex-wrap:wrap;margin-top:14px;}
@@ -221,6 +225,11 @@
   .sub-row input[type=text]:focus{outline:none;border-color:var(--dusty);}
   .sub-row .rm{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:11px;padding:2px 4px;}
   .sub-row .rm:hover{color:var(--rust);}
+  .sub-due-input{
+    background:var(--bg-card);border:1px solid var(--rule);color:var(--ink-dim);
+    font-family:inherit;font-size:11px;padding:4px 5px;border-radius:2px;width:120px;flex:none;
+  }
+  .sub-due-input:focus{outline:none;border-color:var(--dusty);color:var(--ink);}
   .sub-empty{font-size:11.5px;color:var(--ink-faint);font-style:italic;margin-bottom:6px;}
   .sub-add-input{
     width:100%;background:none;border:none;border-bottom:1px dashed var(--rule);color:var(--ink-dim);
@@ -239,11 +248,6 @@
   ::selection{background:var(--amber);color:#1E2320;}
 
   /* Weekday sidebar — per-day tasklists, unrelated to the main task list, saved per file */
-  .sidebar-settings-btn{
-    display:block;margin:0 0 8px auto;background:none;border:1px solid var(--rule);color:var(--ink-faint);
-    font-size:12px;padding:4px 7px;border-radius:2px;cursor:pointer;
-  }
-  .sidebar-settings-btn:hover{color:var(--ink);border-color:var(--dusty);}
   .day-col{border:1px solid var(--rule-soft);border-radius:var(--radius);background:var(--bg-card);margin-bottom:8px;padding:8px 9px;}
   .day-col.is-today{border-color:#5C4A28;}
   .day-head{font-family:'Zilla Slab',serif;font-size:13px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;margin-bottom:6px;}
@@ -260,13 +264,13 @@
 </style>
 </head>
 <body>
-<div class="appLayout">
+<div class="appLayout" id="appLayout">
   <div class="wrap">
 
     <header class="app">
       <div class="brand">
         <h1>Cadence</h1>
-        <button class="theme-btn" id="btnTheme" title="Theme"></button>
+        <button class="header-icon-btn" id="btnSettings" title="Settings">⚙</button>
       </div>
       <div class="tabsbar" id="tabsbar"></div>
     </header>
@@ -312,6 +316,7 @@ let sidebarNotes = defaultNotes(); // {mon..sun} -> array of {id,text,done} task
 let dayResetTime = '00:00';  // HH:MM — when the sidebar's "today" flips to the next day; per-vault
 let completedTtlHours = 0;   // hours after completion before a task auto-deletes; 0 = never; per-vault
 let hideDailySidebar = false; // per-vault: hide the weekday tasklist sidebar for this tab
+let hideSubtaskBar = false;  // per-vault: hide the inline "add subtask" row on task cards
 let vaults = [];             // [{id, name, path?}] — path is set for native-tracked vaults
 let activeVaultId = null;
 let fsaHandles = new Map();  // FSA (browser) mode only: vault id -> FileSystemFileHandle, in-memory
@@ -367,8 +372,8 @@ function fmtDueBadge(g){
 function uid(){ return Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4); }
 
 // ---------- theme (light / dark / follow system) — a UI preference, not
-// vault data, so it lives in localStorage rather than the markdown file ----------
-const THEME_ICON = {dark:'🌙', light:'☀', system:'🖥'};
+// vault data, so it lives in localStorage rather than the markdown file.
+// Picked from a dropdown inside Tab settings (see openTabSettings). ----------
 let themeMode = localStorage.getItem('cadence_theme') || 'system';
 function resolvedTheme(){
   if(themeMode === 'system') return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
@@ -376,24 +381,11 @@ function resolvedTheme(){
 }
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', resolvedTheme());
-  const btn = document.getElementById('btnTheme');
-  if(btn) btn.textContent = THEME_ICON[themeMode];
 }
 function setThemeMode(mode){
   themeMode = mode;
   localStorage.setItem('cadence_theme', mode);
   applyTheme();
-}
-function openThemeMenu(anchor){
-  closeAnyMenu();
-  const menu = document.createElement('div');
-  menu.className = 'tabmenu';
-  menu.innerHTML = `<button data-m="light">☀ Light</button><button data-m="dark">🌙 Dark</button><button data-m="system">🖥 Follow system</button>`;
-  const r = anchor.getBoundingClientRect();
-  positionMenu(menu, r.right - 140 + window.scrollX, r.bottom + window.scrollY + 4);
-  menu.querySelectorAll('button').forEach(b=>{
-    b.onclick = ()=>{ setThemeMode(b.dataset.m); menu.remove(); };
-  });
 }
 if(window.matchMedia){
   window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()=>{ if(themeMode==='system') applyTheme(); });
@@ -410,7 +402,8 @@ function serialize(){
   out += '<!-- sidebar-notes: ' + b64encode(JSON.stringify(sidebarNotes)) + ' -->\n';
   out += '<!-- day-reset-time: ' + (dayResetTime || '00:00') + ' -->\n';
   out += '<!-- completed-ttl: ' + (completedTtlHours || 0) + ' -->\n';
-  out += '<!-- hide-daily: ' + (hideDailySidebar ? 1 : 0) + ' -->\n\n';
+  out += '<!-- hide-daily: ' + (hideDailySidebar ? 1 : 0) + ' -->\n';
+  out += '<!-- hide-subtask-bar: ' + (hideSubtaskBar ? 1 : 0) + ' -->\n\n';
   for(const g of tasks){
     out += '## ' + g.title + '\n';
     const subDue = {};
@@ -448,12 +441,14 @@ function parseFile(text){
   let resetTime = '00:00';
   let ttl = 0;
   let hideDaily = false;
+  let hideSubBar = false;
   let cur = null;
   for(const line of lines){
     const sb = line.match(/^<!--\s*sidebar-notes:\s*([A-Za-z0-9+/=]+)\s*-->$/);
     const rt = line.match(/^<!--\s*day-reset-time:\s*(\d{1,2}:\d{2})\s*-->$/);
     const ttlm = line.match(/^<!--\s*completed-ttl:\s*(\d+)\s*-->$/);
     const hdm = line.match(/^<!--\s*hide-daily:\s*([01])\s*-->$/);
+    const hsm = line.match(/^<!--\s*hide-subtask-bar:\s*([01])\s*-->$/);
     const h = line.match(/^##\s+(.*)$/);
     const m = line.match(/^<!--\s*meta:\s*(\{.*\})\s*-->$/);
     const c = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
@@ -465,6 +460,8 @@ function parseFile(text){
       ttl = Number(ttlm[1]) || 0;
     } else if(hdm){
       hideDaily = hdm[1] === '1';
+    } else if(hsm){
+      hideSubBar = hsm[1] === '1';
     } else if(h){
       cur = {id:uid(), title:h[1].trim(), repeat:'none', days:[], due:null, time:'00:00', history:[], archived:false, completedAt:null, subtasks:[], _subDue:{}};
       groups.push(cur);
@@ -488,7 +485,7 @@ function parseFile(text){
     }
   }
   for(const g of groups) delete g._subDue;
-  return {tasks: groups, sidebarNotes: migrateNotes(rawNotes), dayResetTime: resetTime, completedTtlHours: ttl, hideDailySidebar: hideDaily};
+  return {tasks: groups, sidebarNotes: migrateNotes(rawNotes), dayResetTime: resetTime, completedTtlHours: ttl, hideDailySidebar: hideDaily, hideSubtaskBar: hideSubBar};
 }
 
 // ---------- status / grouping ----------
@@ -727,18 +724,20 @@ function renderGroup(g){
   }
   el.appendChild(subs);
 
-  const addRow = document.createElement('div');
-  addRow.className = 'subtask-add-row';
-  addRow.innerHTML = `<input type="text" class="subtask-add-input" placeholder="+ add subtask, press Enter">`;
-  const addInput = addRow.querySelector('input');
-  addInput.onkeydown = (e)=>{
-    if(e.key==='Enter'){
-      e.preventDefault();
-      addSubtaskInline(g, addInput.value);
-      addInput.value = '';
-    }
-  };
-  el.appendChild(addRow);
+  if(!hideSubtaskBar){
+    const addRow = document.createElement('div');
+    addRow.className = 'subtask-add-row';
+    addRow.innerHTML = `<input type="text" class="subtask-add-input" placeholder="+ add subtask, press Enter">`;
+    const addInput = addRow.querySelector('input');
+    addInput.onkeydown = (e)=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        addSubtaskInline(g, addInput.value);
+        addInput.value = '';
+      }
+    };
+    el.appendChild(addRow);
+  }
 
   return el;
 }
@@ -767,17 +766,13 @@ function logicalTodayKey(){
 // typed into a task — same as before, just now scoped to today's box. ----
 function renderSidebar(){
   const root = document.getElementById('daySidebar');
+  const layout = document.getElementById('appLayout');
   if(!root) return;
   root.style.display = hideDailySidebar ? 'none' : '';
+  if(layout) layout.classList.toggle('no-sidebar', !!hideDailySidebar);
   if(hideDailySidebar) return;
   const todayKey = logicalTodayKey();
   root.innerHTML = '';
-  const settingsBtn = document.createElement('button');
-  settingsBtn.className = 'sidebar-settings-btn';
-  settingsBtn.textContent = '⚙';
-  settingsBtn.title = 'Tab settings';
-  settingsBtn.onclick = openTabSettings;
-  root.appendChild(settingsBtn);
   {
     const key = todayKey;
     const col = document.createElement('div');
@@ -790,7 +785,7 @@ function renderSidebar(){
     list.className = 'day-tasklist';
     const items = sidebarNotes[key] || [];
     if(!items.length){
-      list.innerHTML = '<div class="day-empty">No tasks — click ✎ to add some.</div>';
+      list.innerHTML = '<div class="day-empty">No tasks — add some in ⚙ Settings.</div>';
     } else {
       for(const it of items){
         const row = document.createElement('div');
@@ -828,7 +823,15 @@ function openTabSettings(){
   }
   overlay.innerHTML = `
     <div class="modal" style="max-width:380px;">
-      <h2>Tab settings</h2>
+      <h2>Settings</h2>
+      <div class="field">
+        <label>Theme</label>
+        <select id="sTheme">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="system">Follow system</option>
+        </select>
+      </div>
       <div class="field">
         <label>Day resets at</label>
         <input type="time" id="sReset">
@@ -851,6 +854,11 @@ function openTabSettings(){
         </label>
       </div>
       <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="sHideSubtaskBar"> Hide the "add subtask" bar on task cards for this tab
+        </label>
+      </div>
+      <div class="field">
         <label>Edit tasks for</label>
         <select id="sDaySelect">
           ${DAY_KEYS.map(k=>`<option value="${k}">${DAY_LABELS[k]}</option>`).join('')}
@@ -867,9 +875,12 @@ function openTabSettings(){
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  overlay.querySelector('#sTheme').value = themeMode;
+  overlay.querySelector('#sTheme').onchange = (e)=> setThemeMode(e.target.value);
   overlay.querySelector('#sReset').value = dayResetTime || '00:00';
   overlay.querySelector('#sTtl').value = String(completedTtlHours || 0);
   overlay.querySelector('#sHideDaily').checked = !!hideDailySidebar;
+  overlay.querySelector('#sHideSubtaskBar').checked = !!hideSubtaskBar;
 
   const daySelect = overlay.querySelector('#sDaySelect');
   const dayText = overlay.querySelector('#sDayText');
@@ -883,7 +894,6 @@ function openTabSettings(){
   };
 
   overlay.querySelector('#sCancel').onclick = ()=> overlay.remove();
-  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#sSave').onclick = ()=>{
     dayBuffer[currentDay] = dayText.value;
     for(const k of DAY_KEYS){
@@ -896,10 +906,11 @@ function openTabSettings(){
     dayResetTime = overlay.querySelector('#sReset').value || '00:00';
     completedTtlHours = Number(overlay.querySelector('#sTtl').value) || 0;
     hideDailySidebar = overlay.querySelector('#sHideDaily').checked;
+    hideSubtaskBar = overlay.querySelector('#sHideSubtaskBar').checked;
     runCompletedCleanup();
     save();
     overlay.remove();
-    toast('Tab settings updated');
+    toast('Settings updated');
   };
 }
 
@@ -954,29 +965,65 @@ function renderTabsBar(){
 function renameTab(id){
   const v = vaults.find(x=>x.id===id);
   if(!v) return;
-  const name = prompt('Rename this tab', displayTabName(v.name));
-  if(!name) return;
-  v.name = name.trim() || v.name;
-  if(hasNative) window.cadenceBridge.renameVault(id, v.name);
-  else saveLocalMeta();
-  renderTabsBar();
+  openTextPrompt('Rename this tab', displayTabName(v.name), (name)=>{
+    v.name = name;
+    if(hasNative) window.cadenceBridge.renameVault(id, v.name);
+    else saveLocalMeta();
+    renderTabsBar();
+  });
+}
+// Small reusable single-field modal. Electron does not support
+// window.prompt() (it silently does nothing), so anywhere the app needs a
+// one-line text input from the user goes through this instead.
+function openTextPrompt(title, defaultValue, onSave){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:340px;">
+      <h2>${title}</h2>
+      <div class="field"><input type="text" id="tpInput"></div>
+      <div class="modal-actions">
+        <button class="btn" id="tpCancel">Cancel</button>
+        <button class="btn primary" id="tpSave">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const inp = overlay.querySelector('#tpInput');
+  inp.value = defaultValue || '';
+  inp.focus();
+  inp.select();
+  overlay.querySelector('#tpCancel').onclick = ()=> overlay.remove();
+  const commit = ()=>{
+    const val = inp.value.trim();
+    overlay.remove();
+    if(val) onSave(val);
+  };
+  overlay.querySelector('#tpSave').onclick = commit;
+  inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } };
 }
 function closeAnyMenu(){ document.querySelectorAll('.tabmenu').forEach(m=>m.remove()); }
+// A single persistent pair of listeners (registered once, below) handles
+// closing any open .tabmenu on an outside click — rather than attaching a
+// fresh listener pair every time a menu opens, which could linger if a menu
+// was dismissed by clicking one of its own buttons instead of clicking away.
+let menuArmed = false;
 function positionMenu(menu, x, y){
+  menuArmed = false;
   document.body.appendChild(menu);
   const vw = window.innerWidth, vh = window.innerHeight;
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(x, vw - r.width - 8) + 'px';
   menu.style.top = Math.min(y, vh - r.height - 8) + 'px';
-  setTimeout(()=>{
-    document.addEventListener('click', function h(ev){
-      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click',h); }
-    });
-    document.addEventListener('contextmenu', function h2(ev){
-      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('contextmenu',h2); }
-    });
-  },0);
+  setTimeout(()=>{ menuArmed = true; }, 0);
 }
+document.addEventListener('click', (ev)=>{
+  if(!menuArmed) return;
+  document.querySelectorAll('.tabmenu').forEach(m=>{ if(!m.contains(ev.target)) m.remove(); });
+});
+document.addEventListener('contextmenu', (ev)=>{
+  if(!menuArmed) return;
+  document.querySelectorAll('.tabmenu').forEach(m=>{ if(!m.contains(ev.target)) m.remove(); });
+});
 function openAddTabMenu(e, anchor){
   closeAnyMenu();
   if(!hasNative && !hasFSA){ memoryAddNamed(); return; }
@@ -1016,7 +1063,7 @@ function applyLoadedContent(text){
   sidebarNotes = parsed.sidebarNotes;
   dayResetTime = parsed.dayResetTime || '00:00';
   completedTtlHours = parsed.completedTtlHours || 0;
-  hideDailySidebar = !!parsed.hideDailySidebar;
+  hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
   runAutoResets(false);
   runCompletedCleanup();
   render();
@@ -1031,6 +1078,7 @@ function ensureAtLeastOneVault(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
+    hideSubtaskBar = false;
   }
   if(!activeVaultId || !vaults.find(v=>v.id===activeVaultId)){
     activeVaultId = vaults[0].id;
@@ -1112,6 +1160,7 @@ async function connectNewToCurrent(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
+    hideSubtaskBar = false;
     save();
     toast('New vault file created');
   } else if(hasFSA){
@@ -1129,6 +1178,7 @@ async function connectNewToCurrent(){
       dayResetTime = '00:00';
       completedTtlHours = 0;
       hideDailySidebar = false;
+      hideSubtaskBar = false;
       saveLocalMeta();
       save();
       toast('New vault file created');
@@ -1147,6 +1197,7 @@ async function nativeBootLoad(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
+    hideSubtaskBar = false;
     return;
   }
   if(res.error === 'missing'){
@@ -1156,13 +1207,14 @@ async function nativeBootLoad(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
+    hideSubtaskBar = false;
   } else {
     const parsed = parseFile(res.content || '');
     tasks = parsed.tasks;
     sidebarNotes = parsed.sidebarNotes;
     dayResetTime = parsed.dayResetTime || '00:00';
     completedTtlHours = parsed.completedTtlHours || 0;
-    hideDailySidebar = !!parsed.hideDailySidebar;
+    hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
     runAutoResets(false);
     runCompletedCleanup();
   }
@@ -1186,6 +1238,7 @@ async function nativeAddNew(){
   dayResetTime = '00:00';
   completedTtlHours = 0;
   hideDailySidebar = false;
+  hideSubtaskBar = false;
   save();
   toast('New vault file created');
 }
@@ -1200,6 +1253,7 @@ async function nativeSwitch(id){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
+    hideSubtaskBar = false;
     render();
     return;
   }
@@ -1260,7 +1314,7 @@ async function fsaLoadActive(){
   if(!handle){
     const cached = localStorage.getItem(cacheKey(v.id));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
     runAutoResets(false);
     runCompletedCleanup();
     return;
@@ -1271,13 +1325,13 @@ async function fsaLoadActive(){
       fsaHandles.set(v.id, handle);
       const file = await handle.getFile();
       const parsed = parseFile(await file.text());
-      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
       runAutoResets(false);
       runCompletedCleanup();
     } else {
       const cached = localStorage.getItem(cacheKey(v.id));
       const parsed = parseFile(cached || '');
-      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+      tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
       runAutoResets(false);
       runCompletedCleanup();
     }
@@ -1293,7 +1347,7 @@ async function fsaAddExisting(){
     await storeHandle(id, handle);
     const file = await handle.getFile();
     const parsed = parseFile(await file.text());
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
     runAutoResets(false);
     runCompletedCleanup();
     saveLocalMeta();
@@ -1314,6 +1368,7 @@ async function fsaAddNew(){
     dayResetTime = '00:00';
     completedTtlHours = 0;
     hideDailySidebar = false;
+    hideSubtaskBar = false;
     saveLocalMeta();
     save();
     toast('New vault file created');
@@ -1374,7 +1429,7 @@ function memoryBootLoad(){
     activeVaultId = (meta.activeVaultId && meta.vaults.find(v=>v.id===meta.activeVaultId)) ? meta.activeVaultId : meta.vaults[0].id;
     const cached = localStorage.getItem(cacheKey(activeVaultId));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
     runAutoResets(false);
     runCompletedCleanup();
   } else {
@@ -1383,7 +1438,7 @@ function memoryBootLoad(){
     vaults = [{id, name:'Untitled'}];
     activeVaultId = id;
     const parsed = parseFile(legacy || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
     runAutoResets(false);
     runCompletedCleanup();
     if(legacy) localStorage.setItem(cacheKey(id), legacy);
@@ -1391,25 +1446,26 @@ function memoryBootLoad(){
   }
 }
 function memoryAddNamed(){
-  const name = prompt('Name for this list (e.g. "Wuthering Waves", "Genshin")', 'New list');
-  if(!name) return;
-  const id = uid();
-  vaults.push({id, name: name.trim() || 'Untitled'});
-  activeVaultId = id;
-  tasks = [];
-  sidebarNotes = defaultNotes();
-  dayResetTime = '00:00';
-  completedTtlHours = 0;
-  hideDailySidebar = false;
-  saveLocalMeta();
-  save();
-  toast('New list created — use Import/Export to move it in and out of your synced folder');
+  openTextPrompt('Name for this list (e.g. "Wuthering Waves", "Genshin")', 'New list', (name)=>{
+    const id = uid();
+    vaults.push({id, name: name || 'Untitled'});
+    activeVaultId = id;
+    tasks = [];
+    sidebarNotes = defaultNotes();
+    dayResetTime = '00:00';
+    completedTtlHours = 0;
+    hideDailySidebar = false;
+    hideSubtaskBar = false;
+    saveLocalMeta();
+    save();
+    toast('New list created — use Import/Export to move it in and out of your synced folder');
+  });
 }
 function memorySwitch(id){
   activeVaultId = id;
   const cached = localStorage.getItem(cacheKey(id));
   const parsed = parseFile(cached || '');
-  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
   runAutoResets(false);
   runCompletedCleanup();
   saveLocalMeta();
@@ -1422,7 +1478,7 @@ function memoryClose(id){
     ensureAtLeastOneVault();
     const cached = localStorage.getItem(cacheKey(activeVaultId));
     const parsed = parseFile(cached || '');
-    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+    tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
     runAutoResets(false);
     runCompletedCleanup();
   }
@@ -1459,9 +1515,16 @@ function persistVault(v, text){
     if(v) localStorage.setItem(cacheKey(v.id), text);
   })();
 }
-// Full save: re-renders the task list/sidebar/tabs, then writes to disk.
+let renderScheduled = false;
+function scheduleRender(){
+  if(renderScheduled) return;
+  renderScheduled = true;
+  requestAnimationFrame(()=>{ renderScheduled = false; render(); });
+}
+// Full save: re-renders the task list/sidebar/tabs (coalesced to once per
+// animation frame — see scheduleRender above), then writes to disk.
 function save(){
-  render();
+  scheduleRender();
   const v = activeVault();
   const text = serialize();
   if(saveTimer) clearTimeout(saveTimer);
@@ -1482,7 +1545,7 @@ document.getElementById('fileImportInput').onchange = async (e)=>{
   if(!f) return;
   const text = await f.text();
   const parsed = parseFile(text);
-  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar;
+  tasks = parsed.tasks; sidebarNotes = parsed.sidebarNotes; dayResetTime = parsed.dayResetTime || '00:00'; completedTtlHours = parsed.completedTtlHours || 0; hideDailySidebar = !!parsed.hideDailySidebar; hideSubtaskBar = !!parsed.hideSubtaskBar;
   runAutoResets(false);
   runCompletedCleanup();
   const v = activeVault();
@@ -1544,7 +1607,6 @@ function openQuickAdd(){
   document.body.appendChild(overlay);
   const ta = overlay.querySelector('#qaText');
   overlay.querySelector('#qaCancel').onclick = ()=> overlay.remove();
-  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.querySelector('#qaSave').onclick = ()=>{
     const lines = ta.value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     if(!lines.length){ overlay.remove(); return; }
@@ -1646,18 +1708,13 @@ function openModal(data){
       inp.value = s.title;
       inp.oninput = ()=>{ s.title = inp.value; };
       row.appendChild(inp);
-      const dueBtn = document.createElement('button');
-      dueBtn.type = 'button';
-      dueBtn.className = 'rm';
-      dueBtn.textContent = s.due ? '📅 ' + fmtDate(s.due) : '📅';
-      dueBtn.title = s.due ? 'Change deadline' : 'Set deadline';
-      dueBtn.onclick = ()=>{
-        const val = prompt('Deadline (YYYY-MM-DD), leave blank to clear', s.due || '');
-        if(val===null) return;
-        s.due = val.trim() || null;
-        renderSubEditor();
-      };
-      row.appendChild(dueBtn);
+      const dueInput = document.createElement('input');
+      dueInput.type = 'date';
+      dueInput.className = 'sub-due-input';
+      dueInput.title = 'Deadline (optional)';
+      dueInput.value = s.due || '';
+      dueInput.onchange = ()=>{ s.due = dueInput.value || null; };
+      row.appendChild(dueInput);
       const rm = document.createElement('button');
       rm.className = 'rm'; rm.textContent = '✕'; rm.title = 'Remove subtask';
       rm.onclick = ()=>{ modalSubs = modalSubs.filter(x=>x!==s); renderSubEditor(); };
@@ -1679,7 +1736,6 @@ function openModal(data){
   };
 
   overlay.querySelector('#mCancel').onclick = ()=> overlay.remove();
-  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   if(editingId){
     // Completed tasks skip the "are you sure" — same reasoning as the
     // main-page delete button.
@@ -1713,7 +1769,7 @@ function openModal(data){
 
 document.getElementById('btnAdd').onclick = openAdd;
 document.getElementById('btnQuickAdd').onclick = openQuickAdd;
-document.getElementById('btnTheme').onclick = (e)=> openThemeMenu(e.currentTarget);
+document.getElementById('btnSettings').onclick = openTabSettings;
 applyTheme();
 
 // ---------- boot ----------
