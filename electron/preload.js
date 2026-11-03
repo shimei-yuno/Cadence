@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('cadenceBridge', {
   closeVault: (id) => ipcRenderer.invoke('close-vault', id),
   deleteVaultFile: (id) => ipcRenderer.invoke('delete-vault-file', id),
   renameVault: (id, name) => ipcRenderer.invoke('rename-vault', id, name),
+  reorderVaults: (orderedIds) => ipcRenderer.invoke('reorder-vaults', orderedIds),
   writeFile: (path, content) => ipcRenderer.invoke('write-file', path, content),
   readFile: (path) => ipcRenderer.invoke('read-file', path),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),

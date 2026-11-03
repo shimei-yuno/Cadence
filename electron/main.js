@@ -25,6 +25,21 @@ function readConfig(){
 }
 function writeConfig(cfg){
   try{ fsSync.writeFileSync(configPath, JSON.stringify(cfg)); }catch(e){}
+  writeVaultList(cfg);
+}
+
+// Plain-text list of the task files the tabs are tracking (UTF-16, one path
+// per line). The Windows uninstaller reads it to offer deleting those files —
+// see build/installer.nsh. The folder is named explicitly (rather than using
+// userData) so the installer always knows where to look.
+function writeVaultList(cfg){
+  try{
+    const dir = path.join(app.getPath('appData'), 'Cadence');
+    fsSync.mkdirSync(dir, { recursive: true });
+    const lines = (cfg.vaults || []).map(v => v && v.path).filter(Boolean);
+    const text = lines.length ? lines.join('\r\n') + '\r\n' : '';
+    fsSync.writeFileSync(path.join(dir, 'vault-paths.txt'), Buffer.from(text, 'utf16le'));
+  }catch(e){}
 }
 function genId(){ return Math.random().toString(36).slice(2,10); }
 
@@ -74,6 +89,7 @@ app.on('window-all-closed', ()=>{
 // vault list, which one was last active, and that vault's current content.
 ipcMain.handle('boot', async ()=>{
   const cfg = readConfig();
+  writeVaultList(cfg);   // existing installs get the uninstaller's file list on first launch
   let content = null, error = null;
   const active = cfg.vaults.find(v => v.id === cfg.activeVaultId);
   if(active){
@@ -147,6 +163,20 @@ ipcMain.handle('rename-vault', async (evt, id, name)=>{
   const cfg = readConfig();
   const v = cfg.vaults.find(v => v.id === id);
   if(v) v.name = name;
+  writeConfig(cfg);
+  return true;
+});
+
+// Persists a new tab order (drag-and-drop reordering in the tab bar).
+// `orderedIds` is the full list of vault ids in their new order.
+ipcMain.handle('reorder-vaults', async (evt, orderedIds)=>{
+  const cfg = readConfig();
+  const byId = new Map(cfg.vaults.map(v => [v.id, v]));
+  const reordered = orderedIds.map(id => byId.get(id)).filter(Boolean);
+  // Keep any vault the renderer didn't mention (shouldn't normally happen,
+  // but avoids silently dropping a tab if the lists ever get out of sync).
+  for(const v of cfg.vaults){ if(!orderedIds.includes(v.id)) reordered.push(v); }
+  cfg.vaults = reordered;
   writeConfig(cfg);
   return true;
 });
