@@ -54,6 +54,22 @@ function trackVault(cfg, filePath, name){
   return v;
 }
 
+// First launch: there are no tabs yet. Rather than an unsaved "Untitled" tab (whose tasks used
+// to vanish on restart), create a real default file in Cadence's own folder and track it as a
+// normal tab. The uninstaller knows about this file (see build/installer.nsh).
+const DEFAULT_VAULT_FILE = 'Untitled.md';
+function defaultVaultPath(){ return path.join(app.getPath('appData'), 'Cadence', DEFAULT_VAULT_FILE); }
+async function ensureDefaultVault(cfg){
+  if(cfg.vaults.length) return cfg;
+  try{
+    const p = defaultVaultPath();
+    await fs.mkdir(path.dirname(p), { recursive: true });
+    try{ await fs.access(p); }catch(e){ await fs.writeFile(p, '# Cadence tasks\n\n', 'utf-8'); }
+    trackVault(cfg, p, DEFAULT_VAULT_FILE);
+  }catch(e){}
+  return cfg;
+}
+
 function createWindow(){
   const win = new BrowserWindow({
     width: 900,
@@ -69,8 +85,22 @@ function createWindow(){
       nodeIntegration: false
     }
   });
+  // Tell the page when the window is maximized / full screen so it can use the extra room.
+  // (The layout only changes then; the normal window size is left alone.)
+  const sendState = () => {
+    if(!win.isDestroyed()) win.webContents.send('window-state', win.isMaximized() || win.isFullScreen());
+  };
+  win.on('maximize', sendState);
+  win.on('unmaximize', sendState);
+  win.on('enter-full-screen', sendState);
+  win.on('leave-full-screen', sendState);
+  win.webContents.on('did-finish-load', sendState);
   win.loadFile(path.join(__dirname, '..', 'web', 'index.html'));
 }
+ipcMain.handle('get-window-state', (evt) => {
+  const w = BrowserWindow.fromWebContents(evt.sender);
+  return !!(w && (w.isMaximized() || w.isFullScreen()));
+});
 
 app.whenReady().then(()=>{
   createWindow();
@@ -88,7 +118,7 @@ app.on('window-all-closed', ()=>{
 // Everything the renderer needs on launch in one round trip: the tracked
 // vault list, which one was last active, and that vault's current content.
 ipcMain.handle('boot', async ()=>{
-  const cfg = readConfig();
+  const cfg = await ensureDefaultVault(readConfig());
   writeVaultList(cfg);   // existing installs get the uninstaller's file list on first launch
   let content = null, error = null;
   const active = cfg.vaults.find(v => v.id === cfg.activeVaultId);

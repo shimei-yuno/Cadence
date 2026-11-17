@@ -14,5 +14,7 @@ contextBridge.exposeInMainWorld('cadenceBridge', {
   readFile: (path) => ipcRenderer.invoke('read-file', path),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-  openUpdateUrl: (url) => ipcRenderer.invoke('open-update-url', url)
+  openUpdateUrl: (url) => ipcRenderer.invoke('open-update-url', url),
+  onWindowState: (cb) => ipcRenderer.on('window-state', (_e, maximized) => cb(!!maximized)),
+  getWindowState: () => ipcRenderer.invoke('get-window-state')
 });

@@ -26,6 +26,8 @@
   Var cdnCount
   Var cdnMore
   Var cdnPreview
+  Var cdnDefault
+  Var cdnHasDefault
 !endif
 
 ; Reads the next line of an open UTF-16 file into $cdnLine with any trailing
@@ -63,12 +65,14 @@
       SetShellVarContext current
     ${endif}
     StrCpy $cdnList "$APPDATA\Cadence\vault-paths.txt"
+    StrCpy $cdnDefault "$APPDATA\Cadence\Untitled.md"
     ${if} $installMode == "all"
       SetShellVarContext all
     ${endif}
 
     ${if} ${FileExists} "$cdnList"
       StrCpy $cdnCount 0
+      StrCpy $cdnHasDefault 0
       StrCpy $cdnPreview ""
 
       ; pass 1: count the task files and remember the first two for the prompt
@@ -81,6 +85,9 @@
         Goto cdnCountLoop
       cdnCountOk:
         IntOp $cdnCount $cdnCount + 1
+        StrCmp $cdnLine $cdnDefault 0 cdnNotDefault
+        StrCpy $cdnHasDefault 1
+        cdnNotDefault:
         ${if} $cdnCount <= 2
           StrCpy $cdnShort $cdnLine 90
           StrCpy $cdnPreview "$cdnPreview$\r$\n  $cdnShort"
@@ -90,6 +97,9 @@
       FileClose $cdnFile
 
       ${if} $cdnCount > 0
+        ${if} $cdnHasDefault == 1
+          MessageBox MB_OK|MB_ICONEXCLAMATION "One of your tabs is Cadence's default task file, kept inside Cadence's own folder:$\r$\n$\r$\n$cdnDefault$\r$\n$\r$\nUninstalling does not remove it by itself, but if you choose to delete your task files in the next step it will be deleted along with the others.$\r$\n$\r$\nTo keep your tasks, answer No in the next step, or copy this file somewhere safe first."
+        ${endif}
         StrCpy $cdnMore ""
         ${if} $cdnCount > 2
           IntOp $cdnTail $cdnCount - 2
